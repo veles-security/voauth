@@ -1,0 +1,52 @@
+package velesoauth
+
+import (
+	velesapi "github.com/veles-security/vapi"
+)
+
+const (
+	TokenKind        = "oauth2:token"
+	IDTokenKind      = "oauth2:id_token"
+	AccessTokenKind  = "oauth2:access_token"
+	RefreshTokenKind = "oauth2:refresh_token"
+)
+
+type JwtToken struct {
+	raw       []byte
+	header    map[string]string
+	headerRaw []byte
+	claims    map[string]any
+	claimsRaw []byte
+	signature []byte
+}
+
+// Kind implements [velesapi.Artifacter].
+func (j *JwtToken) Kind() string {
+	return TokenKind
+}
+
+type IDToken struct{ JwtToken }
+
+// Kind implements [velesapi.Artifacter].
+func (i *IDToken) Kind() string {
+	return IDTokenKind
+}
+
+type AccessToken struct{ JwtToken }
+
+// Kind implements [velesapi.Artifacter].
+func (a *AccessToken) Kind() string {
+	return AccessTokenKind
+}
+
+type RefreshToken struct{ JwtToken }
+
+// Kind implements [velesapi.Artifacter].
+func (r *RefreshToken) Kind() string {
+	return RefreshTokenKind
+}
+
+var _ velesapi.Artifacter = &JwtToken{}
+var _ velesapi.Artifacter = &IDToken{}
+var _ velesapi.Artifacter = &AccessToken{}
+var _ velesapi.Artifacter = &RefreshToken{}
