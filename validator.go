@@ -89,7 +89,7 @@ func (p *JwtNonceValidationPolicy) Validate(ctx context.Context, token *JwtToken
 
 // ----------------------------------------------------------------------------
 
-func WithIssuer(issuer string) JwtValidationPolicer {
+func WithValidIssuer(issuer string) JwtValidationPolicer {
 	return &JwtIssuerValidationPolicy{Issuer: issuer}
 }
 
@@ -119,7 +119,7 @@ func (p *JwtIssuerValidationPolicy) Validate(ctx context.Context, token *JwtToke
 
 // ----------------------------------------------------------------------------
 
-func WithAudience(audiences ...string) JwtValidationPolicer {
+func WithValidAudience(audiences ...string) JwtValidationPolicer {
 	return &JwtAudienceValidationPolicy{Audiences: audiences}
 }
 
@@ -198,7 +198,7 @@ func (p *JwtAudienceValidationPolicy) Validate(ctx context.Context, token *JwtTo
 
 // ----------------------------------------------------------------------------
 
-func WithClock(leeway time.Duration) JwtValidationPolicer {
+func WithValidClock(leeway time.Duration) JwtValidationPolicer {
 	return &JwtClockValidationPolicy{Leeway: leeway}
 }
 

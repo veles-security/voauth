@@ -15,7 +15,7 @@ func issueToken(t *testing.T) *velesoauth.JwtToken {
 	if err != nil {
 		t.Fatal(err)
 	}
-	issuer := velesoauth.NewJwtIssuer(velesoauth.WithJwtIssuer("safe"), velesoauth.NewJwtSigner(keyRSA2048, vapi.SigAlgRS256))
+	issuer := velesoauth.NewJwtIssuer(velesoauth.WithIssuer("safe"), velesoauth.NewJwtSigner(keyRSA2048, vapi.SigAlgRS256))
 	issuedToken, err := issuer.Issue(context.Background())
 	if err != nil {
 		t.Fatal(err)

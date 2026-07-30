@@ -2,7 +2,11 @@ package velesoauth
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
+	"maps"
+	"time"
 
 	velesapi "github.com/veles-security/vapi"
 )
@@ -20,6 +24,7 @@ func NewJwtIssuer(options ...JwtIssuerOption) *JwtIssuer {
 // Issue implements [velesapi.IssueSchemer].
 func (j *JwtIssuer) Issue(ctx context.Context, options ...JwtIssuerOption) (*JwtToken, error) {
 	token := &JwtToken{
+		iat:    time.Now(),
 		Header: map[string]string{},
 		Claims: make(Cliams),
 	}
@@ -41,7 +46,23 @@ func (j *JwtIssuer) Issue(ctx context.Context, options ...JwtIssuerOption) (*Jwt
 		return nil, err
 	}
 
+	jti, err := j.JTI(16)
+	if err != nil {
+		return nil, err
+	}
+
+	token.Claims["iat"] = token.iat
+	token.Claims["jti"] = jti
+
 	return token, nil
+}
+
+func (j *JwtIssuer) JTI(nbytes int) (string, error) {
+	b := make([]byte, nbytes)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(b), nil
 }
 
 type JwtIssuerOption interface {
@@ -54,7 +75,17 @@ func (f JwtIssuerOptionFunc) ApplyIssuerOption(ctx context.Context, token *JwtTo
 	return f(ctx, token)
 }
 
-func WithJwtIssuer(issuer string) JwtIssuerOption {
+func WithSubject(subject string) JwtIssuerOption {
+	return JwtIssuerOptionFunc(func(_ context.Context, token *JwtToken) error {
+		if token.Claims == nil {
+			token.Claims = make(map[string]any)
+		}
+		token.Claims["sub"] = subject
+		return nil
+	})
+}
+
+func WithIssuer(issuer string) JwtIssuerOption {
 	return JwtIssuerOptionFunc(func(_ context.Context, token *JwtToken) error {
 		if token.Claims == nil {
 			token.Claims = make(map[string]any)
@@ -64,7 +95,27 @@ func WithJwtIssuer(issuer string) JwtIssuerOption {
 	})
 }
 
-func WithJwtPrincipal(principal velesapi.Principaler) JwtIssuerOption {
+func WithExp(exp time.Duration) JwtIssuerOption {
+	return JwtIssuerOptionFunc(func(_ context.Context, token *JwtToken) error {
+		if token.Claims == nil {
+			token.Claims = make(map[string]any)
+		}
+		token.Claims["exp"] = token.iat.Add(exp).Unix()
+		return nil
+	})
+}
+
+func WithClaims(cliams Cliams) JwtIssuerOption {
+	return JwtIssuerOptionFunc(func(_ context.Context, token *JwtToken) error {
+		if token.Claims == nil {
+			token.Claims = make(map[string]any)
+		}
+		maps.Copy(token.Claims, cliams)
+		return nil
+	})
+}
+
+func WithPrincipal(principal velesapi.Principaler) JwtIssuerOption {
 	return JwtIssuerOptionFunc(func(_ context.Context, token *JwtToken) error {
 		if principal == nil {
 			return velesapi.NewErrorCategory(velesapi.ErrPolicyRejected, errors.New("nil principal"))

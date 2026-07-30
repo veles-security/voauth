@@ -1,6 +1,8 @@
 package velesoauth
 
 import (
+	"time"
+
 	velesapi "github.com/veles-security/vapi"
 )
 
@@ -12,6 +14,7 @@ const (
 )
 
 type JwtToken struct {
+	iat       time.Time
 	Header    map[string]string
 	Claims    Cliams
 	signature []byte
