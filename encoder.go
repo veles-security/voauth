@@ -8,19 +8,25 @@ import (
 	velesapi "github.com/veles-security/vapi"
 )
 
-type JwtEncoder struct {
-}
+type JwtEncoder struct{}
 
-type JwtEncoderOption struct {
+type JwtEncoderOption func(*JwtEncoder)
+
+func NewJwtEncoder(options ...JwtEncoderOption) *JwtEncoder {
+	encoder := &JwtEncoder{}
+	for _, option := range options {
+		option(encoder)
+	}
+	return encoder
 }
 
 // Encode implements [vapi.EncodeSchemer].
 func (j *JwtEncoder) Encode(ctx context.Context, artifact *JwtToken, options ...JwtEncoderOption) ([]byte, error) {
-	header, err := json.Marshal(artifact.header)
+	header, err := json.Marshal(artifact.Header)
 	if err != nil {
 		return nil, err
 	}
-	claims, err := json.Marshal(artifact.claims)
+	claims, err := json.Marshal(artifact.Claims)
 	if err != nil {
 		return nil, err
 	}
@@ -38,10 +44,16 @@ func (j *JwtEncoder) Encode(ctx context.Context, artifact *JwtToken, options ...
 
 // ----------------------------------------------------------------------------
 
-type JwtClaimsEncoder struct {
-}
+type JwtClaimsEncoder struct{}
 
-type JwtClaimsEncoderOption struct {
+type JwtClaimsEncoderOption func(*JwtClaimsEncoder)
+
+func NewJwtClaimsEncoder(options ...JwtClaimsEncoderOption) *JwtClaimsEncoder {
+	encoder := &JwtClaimsEncoder{}
+	for _, option := range options {
+		option(encoder)
+	}
+	return encoder
 }
 
 // Encode implements [vapi.EncodeSchemer].

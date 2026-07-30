@@ -10,10 +10,20 @@ import (
 )
 
 type JwtExtractor struct {
-	Decoder velesapi.DecodeSchemer[*JwtToken, JwtDecoderOption]
+	decoder velesapi.DecodeSchemer[*JwtToken, JwtDecoderOption]
 }
 
-type JwtExtractorOption struct {
+type JwtExtractorOption func(*JwtExtractor)
+
+func NewJwtExtractor(options ...JwtExtractorOption) *JwtExtractor {
+	extractor := &JwtExtractor{}
+	for _, option := range options {
+		option(extractor)
+	}
+	if extractor.decoder == nil {
+		extractor.decoder = NewJwtDecoder()
+	}
+	return extractor
 }
 
 // AddCredentials implements [velesapi.ExtractorSchemer].
@@ -38,7 +48,7 @@ func (j *JwtExtractor) ExtractArtifact(ctx context.Context, request *http.Reques
 		return nil, velesapi.NewErrorCategory(velesapi.ErrUnauthenticated, errors.New("malformed bearer credentials"))
 	}
 
-	return j.Decoder.Decode(ctx, []byte(credential))
+	return j.decoder.Decode(ctx, []byte(credential))
 }
 
 var _ velesapi.ExtractorSchemer[*http.Request, *JwtToken, JwtExtractorOption] = &JwtExtractor{}

@@ -48,10 +48,10 @@ func (f JwtIssuerOptionFunc) Apply(ctx context.Context, token *JwtToken) error {
 
 func WithJwtIssuer(issuer string) JwtIssuerOption {
 	return JwtIssuerOptionFunc(func(_ context.Context, token *JwtToken) error {
-		if token.claims == nil {
-			token.claims = make(map[string]any)
+		if token.Claims == nil {
+			token.Claims = make(map[string]any)
 		}
-		token.claims["iss"] = issuer
+		token.Claims["iss"] = issuer
 		return nil
 	})
 }
@@ -61,14 +61,14 @@ func WithJwtPrincipal(principal velesapi.Principaler) JwtIssuerOption {
 		if principal == nil {
 			return velesapi.NewErrorCategory(velesapi.ErrPolicyRejected, errors.New("nil principal"))
 		}
-		if token.claims == nil {
-			token.claims = make(map[string]any)
+		if token.Claims == nil {
+			token.Claims = make(map[string]any)
 		}
 		for name, value := range principal.Claims() {
-			token.claims[name] = value
+			token.Claims[name] = value
 		}
-		token.claims["iss"] = principal.Issuer()
-		token.claims["sub"] = principal.Subject()
+		token.Claims["iss"] = principal.Issuer()
+		token.Claims["sub"] = principal.Subject()
 		return nil
 	})
 }

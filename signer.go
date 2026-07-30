@@ -35,7 +35,7 @@ func (j *JwtSigner) Apply(ctx context.Context, token *JwtToken) error {
 	}
 	token.signature = signature
 	if j.kid != "" {
-		token.header["kid"] = j.kid
+		token.Header["kid"] = j.kid
 	}
 	return nil
 }
@@ -47,7 +47,7 @@ func (j *JwtSigner) Sign(ctx context.Context, artifact *JwtToken, options ...Jwt
 		option(&config)
 	}
 
-	claimsEncoded, err := config.encoder.Encode(ctx, &artifact.claims)
+	claimsEncoded, err := config.encoder.Encode(ctx, &artifact.Claims)
 	if err != nil {
 		return nil, err
 	}

@@ -12,8 +12,8 @@ const (
 )
 
 type JwtToken struct {
-	header    map[string]string
-	claims    Cliams
+	Header    map[string]string
+	Claims    Cliams
 	signature []byte
 }
 

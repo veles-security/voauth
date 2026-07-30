@@ -51,7 +51,7 @@ func (p *JwtTypeValidationPolicy) Validate(_ context.Context, token *JwtToken) e
 	if token == nil {
 		return velesapi.NewErrorCategory(velesapi.ErrMalformed, fmt.Errorf("nil JWT"))
 	}
-	if token.header["typ"] != p.Type {
+	if token.Header["typ"] != p.Type {
 		return velesapi.NewErrorCategory(velesapi.ErrPolicyRejected, fmt.Errorf("JWT has the wrong type"))
 	}
 	return nil
@@ -73,7 +73,7 @@ func (p *JwtNonceValidationPolicy) Validate(ctx context.Context, token *JwtToken
 		return velesapi.NewErrorCategory(velesapi.ErrMalformed, fmt.Errorf("nil JWT"))
 	}
 
-	nonce, ok := token.claims["nonce"]
+	nonce, ok := token.Claims["nonce"]
 	if !ok {
 		return velesapi.NewErrorCategory(velesapi.ErrBinding, fmt.Errorf("JWT nonce is missing"))
 	}
@@ -103,7 +103,7 @@ func (p *JwtIssuerValidationPolicy) Validate(ctx context.Context, token *JwtToke
 		return velesapi.NewErrorCategory(velesapi.ErrMalformed, fmt.Errorf("nil JWT"))
 	}
 
-	issuer, ok := token.claims["iss"]
+	issuer, ok := token.Claims["iss"]
 	if !ok {
 		return velesapi.NewErrorCategory(velesapi.ErrWrongIssuer, fmt.Errorf("JWT issuer is missing"))
 	}
@@ -134,7 +134,7 @@ func (p *JwtAudienceValidationPolicy) Validate(ctx context.Context, token *JwtTo
 		return velesapi.NewErrorCategory(velesapi.ErrMalformed, fmt.Errorf("nil JWT"))
 	}
 
-	audience, ok := token.claims["aud"]
+	audience, ok := token.Claims["aud"]
 	if !ok {
 		return velesapi.NewErrorCategory(velesapi.ErrWrongAudience, fmt.Errorf("JWT audience is missing"))
 	}
@@ -213,12 +213,12 @@ func (p *JwtClockValidationPolicy) Validate(ctx context.Context, token *JwtToken
 	}
 
 	now := float64(time.Now().UnixNano()) / float64(time.Second)
-	if exp, ok, err := p.numericDate(token.claims, "exp"); err != nil {
+	if exp, ok, err := p.numericDate(token.Claims, "exp"); err != nil {
 		return err
 	} else if ok && now >= exp+p.Leeway.Seconds() {
 		return velesapi.NewErrorCategory(velesapi.ErrExpired, fmt.Errorf("JWT expired"))
 	}
-	if nbf, ok, err := p.numericDate(token.claims, "nbf"); err != nil {
+	if nbf, ok, err := p.numericDate(token.Claims, "nbf"); err != nil {
 		return err
 	} else if ok && now+p.Leeway.Seconds() < nbf {
 		return velesapi.NewErrorCategory(velesapi.ErrNotYetValid, fmt.Errorf("JWT is not valid yet"))

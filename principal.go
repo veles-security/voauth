@@ -15,11 +15,11 @@ type JwtPrincipalExtractor struct {
 
 // ExtractPrincipal implements [velesapi.PrincipalSchemer].
 func (j *JwtPrincipalExtractor) ExtractPrincipal(ctx context.Context, token *JwtToken, mappers ...JwtPrincipalMapper) (velesapi.Principaler, error) {
-	issuer, ok := token.claims["iss"].(string)
+	issuer, ok := token.Claims["iss"].(string)
 	if !ok {
 		issuer = ""
 	}
-	subject, ok := token.claims["sub"].(string)
+	subject, ok := token.Claims["sub"].(string)
 	if !ok {
 		subject = ""
 	}
@@ -68,26 +68,26 @@ func (m JwtStandardClaimsMapper) Map(token *JwtToken, principal velesapi.Princip
 		return errors.New("velesoauth: standard claims mapper requires *velesapi.Principal")
 	}
 
-	p.WithClaims(token.claims)
-	if value, ok := token.claims["name"].(string); ok {
+	p.WithClaims(token.Claims)
+	if value, ok := token.Claims["name"].(string); ok {
 		p.WithDisplayName(value)
 	}
-	if value, ok := token.claims["preferred_username"].(string); ok {
+	if value, ok := token.Claims["preferred_username"].(string); ok {
 		p.WithUsername(value)
 	}
-	if value, ok := token.claims["email"].(string); ok {
+	if value, ok := token.Claims["email"].(string); ok {
 		p.WithEmail(value)
 	}
-	if value, ok := m.numericDate(token.claims["iat"]); ok {
+	if value, ok := m.numericDate(token.Claims["iat"]); ok {
 		p.WithIssuedAt(value)
 	}
-	if value, ok := m.numericDate(token.claims["auth_time"]); ok {
+	if value, ok := m.numericDate(token.Claims["auth_time"]); ok {
 		p.WithAuthenticatedAt(value)
 	}
 
-	acr, _ := token.claims["acr"].(string)
+	acr, _ := token.Claims["acr"].(string)
 	assurance := m.AssuranceLevels[acr]
-	p.WithAuthentication(m.authenticationMethods(token.claims["amr"]), acr, assurance)
+	p.WithAuthentication(m.authenticationMethods(token.Claims["amr"]), acr, assurance)
 	source := m.Source
 	if source == "" {
 		source = "oauth2:jwt"
@@ -137,12 +137,12 @@ func (m JwtAttributesMapper) Map(token *JwtToken, principal velesapi.Principaler
 		return errors.New("velesoauth: attributes mapper requires *velesapi.Principal")
 	}
 	if len(m.Claims) == 0 {
-		p.WithAttributes(token.claims)
+		p.WithAttributes(token.Claims)
 		return nil
 	}
 	attributes := make(map[string]any, len(m.Claims))
 	for _, name := range m.Claims {
-		if value, ok := token.claims[name]; ok {
+		if value, ok := token.Claims[name]; ok {
 			attributes[name] = value
 		}
 	}

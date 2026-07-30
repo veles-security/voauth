@@ -9,7 +9,16 @@ import (
 	velesapi "github.com/veles-security/vapi"
 )
 
-type JwtDecoder struct {
+type JwtDecoder struct{}
+
+type JwtDecoderOption func(*JwtDecoder)
+
+func NewJwtDecoder(options ...JwtDecoderOption) *JwtDecoder {
+	decoder := &JwtDecoder{}
+	for _, option := range options {
+		option(decoder)
+	}
+	return decoder
 }
 
 // Decode implements [velesapi.DecodeSchemer].
@@ -28,8 +37,8 @@ func (d JwtDecoder) Decode(ctx context.Context, encoded []byte, options ...JwtDe
 	}
 
 	return &JwtToken{
-		header:    header,
-		claims:    claims,
+		Header:    header,
+		Claims:    claims,
 		signature: signatureEncoded,
 	}, nil
 }
@@ -75,9 +84,6 @@ func (d JwtDecoder) split(jwtBytes []byte) (header, payload, signature []byte, e
 	}
 
 	return jwtBytes[:firstDot], remainder[:secondDot], remainder[secondDot+1:], nil
-}
-
-type JwtDecoderOption struct {
 }
 
 var _ velesapi.DecodeSchemer[*JwtToken, JwtDecoderOption] = &JwtDecoder{}
