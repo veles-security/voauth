@@ -27,8 +27,8 @@ func NewJwtSigner(key crypto.Signer, alg vapi.SigAlg, options ...JwtSignerPolice
 	return signer
 }
 
-// Apply implements [JwtIssuerOption].
-func (j *JwtSigner) Apply(ctx context.Context, token *JwtToken) error {
+// ApplyIssuerOption implements [JwtIssuerOption].
+func (j *JwtSigner) ApplyIssuerOption(ctx context.Context, token *JwtToken) error {
 	signature, err := j.Sign(ctx, token)
 	if err != nil {
 		return err
@@ -37,6 +37,11 @@ func (j *JwtSigner) Apply(ctx context.Context, token *JwtToken) error {
 	if j.kid != "" {
 		token.Header["kid"] = j.kid
 	}
+	alg, err := j.alg.ToOAuth()
+	if err != nil {
+		return err
+	}
+	token.Header["alg"] = alg
 	return nil
 }
 

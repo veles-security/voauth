@@ -8,8 +8,7 @@ import (
 )
 
 type JwtIssuer struct {
-	Options []JwtIssuerOption
-	Encoder velesapi.EncodeSchemer[*JwtToken, JwtEncoderOption]
+	options []JwtIssuerOption
 }
 
 // Issue implements [velesapi.IssueSchemer].
@@ -18,7 +17,7 @@ func (j *JwtIssuer) Issue(ctx context.Context, options ...JwtIssuerOption) (*Jwt
 
 	applyOptions := func(ps []JwtIssuerOption) error {
 		for _, p := range ps {
-			err := p.Apply(ctx, token)
+			err := p.ApplyIssuerOption(ctx, token)
 			if err != nil {
 				return err
 			}
@@ -26,7 +25,7 @@ func (j *JwtIssuer) Issue(ctx context.Context, options ...JwtIssuerOption) (*Jwt
 		return nil
 	}
 
-	if err := applyOptions(j.Options); err != nil {
+	if err := applyOptions(j.options); err != nil {
 		return nil, err
 	}
 	if err := applyOptions(options); err != nil {
@@ -37,12 +36,12 @@ func (j *JwtIssuer) Issue(ctx context.Context, options ...JwtIssuerOption) (*Jwt
 }
 
 type JwtIssuerOption interface {
-	Apply(ctx context.Context, token *JwtToken) error
+	ApplyIssuerOption(ctx context.Context, token *JwtToken) error
 }
 
 type JwtIssuerOptionFunc func(ctx context.Context, token *JwtToken) error
 
-func (f JwtIssuerOptionFunc) Apply(ctx context.Context, token *JwtToken) error {
+func (f JwtIssuerOptionFunc) ApplyIssuerOption(ctx context.Context, token *JwtToken) error {
 	return f(ctx, token)
 }
 
@@ -67,7 +66,6 @@ func WithJwtPrincipal(principal velesapi.Principaler) JwtIssuerOption {
 		for name, value := range principal.Claims() {
 			token.Claims[name] = value
 		}
-		token.Claims["iss"] = principal.Issuer()
 		token.Claims["sub"] = principal.Subject()
 		return nil
 	})
