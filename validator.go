@@ -1,19 +1,14 @@
 package velesoauth
 
 import (
-	"bytes"
 	"context"
 	"crypto"
-	"crypto/ecdsa"
-	"crypto/ed25519"
-	"crypto/rsa"
 	"crypto/subtle"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"math/big"
 	"time"
 
+	"github.com/veles-security/vapi"
 	velesapi "github.com/veles-security/vapi"
 )
 
@@ -31,82 +26,13 @@ func (f jwtValidationPolicyFunc) Validate(ctx context.Context, token *JwtToken) 
 
 type JwtSignatureValidationPolicy struct {
 	Kid string
-	Alg string
+	Alg vapi.SigAlg
 	Key crypto.PublicKey
 }
 
 // Validate implements [JwtValidationPolicer].
 func (j *JwtSignatureValidationPolicy) Validate(_ context.Context, token *JwtToken) error {
-	if token == nil {
-		return velesapi.NewErrorCategory(velesapi.ErrMalformed, fmt.Errorf("nil JWT"))
-	}
-	if j == nil || j.Alg == "" || j.Key == nil {
-		return velesapi.NewErrorCategory(velesapi.ErrPolicyRejected, fmt.Errorf("incomplete JWT signature policy"))
-	}
-	if token.header["alg"] != j.Alg || (j.Kid != "" && token.header["kid"] != j.Kid) {
-		return velesapi.NewErrorCategory(velesapi.ErrInvalidSignature, fmt.Errorf("JWT signature policy mismatch"))
-	}
 
-	dot := bytes.LastIndexByte(token.raw, '.')
-	if dot < 0 {
-		return velesapi.NewErrorCategory(velesapi.ErrMalformed, fmt.Errorf("malformed JWT signing input"))
-	}
-	signature := make([]byte, base64.RawURLEncoding.DecodedLen(len(token.signature)))
-	n, err := base64.RawURLEncoding.Decode(signature, token.signature)
-	if err != nil {
-		return velesapi.NewErrorCategory(velesapi.ErrMalformed, fmt.Errorf("malformed JWT signature: %w", err))
-	}
-	signature = signature[:n]
-	signingInput := token.raw[:dot]
-
-	var hash crypto.Hash
-	expectedCurveBits := 0
-	switch j.Alg {
-	case "RS256", "PS256":
-		hash = crypto.SHA256
-	case "ES256":
-		hash, expectedCurveBits = crypto.SHA256, 256
-	case "RS384", "PS384":
-		hash = crypto.SHA384
-	case "ES384":
-		hash, expectedCurveBits = crypto.SHA384, 384
-	case "RS512", "PS512":
-		hash = crypto.SHA512
-	case "ES512":
-		hash, expectedCurveBits = crypto.SHA512, 521
-	case "EdDSA":
-		key, ok := j.Key.(ed25519.PublicKey)
-		if ok && ed25519.Verify(key, signingInput, signature) {
-			return nil
-		}
-		return velesapi.NewErrorCategory(velesapi.ErrInvalidSignature, fmt.Errorf("invalid JWT signature"))
-	default:
-		return velesapi.NewErrorCategory(velesapi.ErrUnsupported, fmt.Errorf("unsupported JWT signature algorithm %q", j.Alg))
-	}
-
-	hasher := hash.New()
-	_, _ = hasher.Write(signingInput)
-	digest := hasher.Sum(nil)
-	valid := false
-	switch key := j.Key.(type) {
-	case *rsa.PublicKey:
-		switch j.Alg[:2] {
-		case "RS":
-			valid = rsa.VerifyPKCS1v15(key, hash, digest, signature) == nil
-		case "PS":
-			valid = rsa.VerifyPSS(key, hash, digest, signature, &rsa.PSSOptions{SaltLength: rsa.PSSSaltLengthEqualsHash}) == nil
-		}
-	case *ecdsa.PublicKey:
-		size := (key.Params().BitSize + 7) / 8
-		if expectedCurveBits == key.Params().BitSize && len(signature) == size*2 {
-			r := new(big.Int).SetBytes(signature[:size])
-			s := new(big.Int).SetBytes(signature[size:])
-			valid = ecdsa.Verify(key, digest, r, s)
-		}
-	}
-	if !valid {
-		return velesapi.NewErrorCategory(velesapi.ErrInvalidSignature, fmt.Errorf("invalid JWT signature"))
-	}
 	return nil
 }
 

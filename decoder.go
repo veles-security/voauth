@@ -28,11 +28,8 @@ func (d JwtDecoder) Decode(ctx context.Context, encoded []byte, options ...JwtDe
 	}
 
 	return &JwtToken{
-		raw:       encoded,
 		header:    header,
-		headerRaw: headerEncoded,
 		claims:    claims,
-		claimsRaw: claimsEncoded,
 		signature: signatureEncoded,
 	}, nil
 }
