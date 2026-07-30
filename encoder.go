@@ -32,13 +32,25 @@ func (j *JwtEncoder) Encode(ctx context.Context, artifact *JwtToken, options ...
 	}
 
 	headerLen := base64.RawURLEncoding.EncodedLen(len(header))
+	headerEncoded := make([]byte, headerLen)
+	base64.RawURLEncoding.Encode(headerEncoded, header)
+
 	claimsLen := base64.RawURLEncoding.EncodedLen(len(claims))
-	encoded := make([]byte, headerLen+claimsLen+len(artifact.signature)+2)
-	base64.RawURLEncoding.Encode(encoded[:headerLen], header)
-	encoded[headerLen] = '.'
-	base64.RawURLEncoding.Encode(encoded[headerLen+1:headerLen+1+claimsLen], claims)
-	encoded[headerLen+1+claimsLen] = '.'
-	copy(encoded[headerLen+claimsLen+2:], artifact.signature)
+	claimsEncoded := make([]byte, claimsLen)
+	base64.RawURLEncoding.Encode(claimsEncoded, claims)
+
+	signatureLen := base64.RawURLEncoding.EncodedLen(len(artifact.signature))
+	signatureEncoded := make([]byte, signatureLen)
+	base64.RawURLEncoding.Encode(signatureEncoded, artifact.signature)
+
+	encoded := make([]byte, headerLen+claimsLen+signatureLen+2)
+	offset := copy(encoded, headerEncoded)
+	encoded[offset] = '.'
+	offset++
+	offset += copy(encoded[offset:], claimsEncoded)
+	encoded[offset] = '.'
+	copy(encoded[offset+1:], signatureEncoded)
+
 	return encoded, nil
 }
 

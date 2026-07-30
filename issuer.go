@@ -11,9 +11,18 @@ type JwtIssuer struct {
 	options []JwtIssuerOption
 }
 
+func NewJwtIssuer(options ...JwtIssuerOption) *JwtIssuer {
+	issuer := &JwtIssuer{}
+	issuer.options = options
+	return issuer
+}
+
 // Issue implements [velesapi.IssueSchemer].
 func (j *JwtIssuer) Issue(ctx context.Context, options ...JwtIssuerOption) (*JwtToken, error) {
-	token := &JwtToken{}
+	token := &JwtToken{
+		Header: map[string]string{},
+		Claims: make(Cliams),
+	}
 
 	applyOptions := func(ps []JwtIssuerOption) error {
 		for _, p := range ps {
