@@ -1,4 +1,4 @@
-package velesoauth
+package voauth
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 	"maps"
 	"time"
 
+	"github.com/veles-security/vapi"
 	velesapi "github.com/veles-security/vapi"
 )
 
@@ -55,6 +56,11 @@ func (j *JwtIssuer) Issue(ctx context.Context, options ...JwtIssuerOption) (*Jwt
 	token.Claims["jti"] = jti
 
 	return token, nil
+}
+
+// IssueForPrincipal implements [velesapi.IssueSchemer].
+func (j *JwtIssuer) IssueForPrincipal(ctx context.Context, principal vapi.Principaler, options ...JwtIssuerOption) (*JwtToken, error) {
+	return nil, nil
 }
 
 func (j *JwtIssuer) JTI(nbytes int) (string, error) {

@@ -1,4 +1,4 @@
-package velesoauth
+package voauth
 
 import (
 	"context"
@@ -24,7 +24,7 @@ func (j *JwtPrincipalExtractor) ExtractPrincipal(ctx context.Context, token *Jwt
 		subject = ""
 	}
 
-	p := velesapi.NewBasePrincipal(issuer, subject, "?")
+	p := velesapi.NewBasePrincipal(issuer, subject, "oauth2:principal")
 
 	mapp := func(mappers []JwtPrincipalMapper) error {
 		for _, mapper := range mappers {
@@ -65,7 +65,7 @@ type JwtStandardClaimsMapper struct {
 func (m JwtStandardClaimsMapper) Map(token *JwtToken, principal velesapi.Principaler) error {
 	p, ok := principal.(*velesapi.Principal)
 	if !ok {
-		return errors.New("velesoauth: standard claims mapper requires *velesapi.Principal")
+		return errors.New("voauth: standard claims mapper requires *velesapi.Principal")
 	}
 
 	p.WithClaims(token.Claims)
@@ -134,7 +134,7 @@ type JwtAttributesMapper struct {
 func (m JwtAttributesMapper) Map(token *JwtToken, principal velesapi.Principaler) error {
 	p, ok := principal.(*velesapi.Principal)
 	if !ok {
-		return errors.New("velesoauth: attributes mapper requires *velesapi.Principal")
+		return errors.New("voauth: attributes mapper requires *velesapi.Principal")
 	}
 	if len(m.Claims) == 0 {
 		p.WithAttributes(token.Claims)

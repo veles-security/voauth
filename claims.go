@@ -1,4 +1,4 @@
-package velesoauth
+package voauth
 
 const (
 	TokenClaimsKind = "oauth2:token:claims"

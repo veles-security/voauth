@@ -1,4 +1,4 @@
-package velesoauth
+package voauth
 
 import (
 	"context"
@@ -251,6 +251,16 @@ func (p *JwtClockValidationPolicy) numericDate(claims map[string]any, name strin
 
 type JwtValidator struct {
 	Policies []JwtValidationPolicer
+}
+
+func NewJwtValidator(policies ...JwtValidationPolicer) *JwtValidator {
+	validator := &JwtValidator{
+		Policies: []JwtValidationPolicer{},
+	}
+	for _, policy := range policies {
+		validator.Policies = append(validator.Policies, policy)
+	}
+	return validator
 }
 
 // Validate implements [velesapi.ValidationSchemer].

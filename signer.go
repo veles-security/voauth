@@ -1,4 +1,4 @@
-package velesoauth
+package voauth
 
 import (
 	"context"
