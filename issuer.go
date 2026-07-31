@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/veles-security/vapi"
-	velesapi "github.com/veles-security/vapi"
 )
 
 type JwtIssuer struct {
@@ -22,7 +21,7 @@ func NewJwtIssuer(options ...JwtIssuerOption) *JwtIssuer {
 	return issuer
 }
 
-// Issue implements [velesapi.IssueSchemer].
+// Issue implements [vapi.IssueSchemer].
 func (j *JwtIssuer) Issue(ctx context.Context, options ...JwtIssuerOption) (*JwtToken, error) {
 	token := &JwtToken{
 		iat:    time.Now(),
@@ -58,8 +57,8 @@ func (j *JwtIssuer) Issue(ctx context.Context, options ...JwtIssuerOption) (*Jwt
 	return token, nil
 }
 
-// IssueForPrincipal implements [velesapi.IssueSchemer].
-func (j *JwtIssuer) IssueForPrincipal(ctx context.Context, principal vapi.Principaler, options ...JwtIssuerOption) (*JwtToken, error) {
+// IssueForPrincipal implements [vapi.IssueForPrincipalSchemer].
+func (j *JwtIssuer) IssueForPrincipal(ctx context.Context, principal vapi.Principal) (*JwtToken, error) {
 	return nil, nil
 }
 
@@ -121,10 +120,10 @@ func WithClaims(cliams Cliams) JwtIssuerOption {
 	})
 }
 
-func WithPrincipal(principal velesapi.Principaler) JwtIssuerOption {
+func WithPrincipal(principal vapi.Principal) JwtIssuerOption {
 	return JwtIssuerOptionFunc(func(_ context.Context, token *JwtToken) error {
 		if principal == nil {
-			return velesapi.NewErrorCategory(velesapi.ErrPolicyRejected, errors.New("nil principal"))
+			return vapi.NewErrorCategory(vapi.ErrPolicyRejected, errors.New("nil principal"))
 		}
 		if token.Claims == nil {
 			token.Claims = make(map[string]any)
@@ -137,5 +136,6 @@ func WithPrincipal(principal velesapi.Principaler) JwtIssuerOption {
 	})
 }
 
-var _ velesapi.IssueSchemer[JwtIssuerOption, *JwtToken] = &JwtIssuer{}
+var _ vapi.Issuer[JwtIssuerOption, *JwtToken] = &JwtIssuer{}
+var _ vapi.PrincipalIssuer[JwtIssuerOption, *JwtToken] = &JwtIssuer{}
 var _ JwtIssuerOption = JwtIssuerOptionFunc(nil)

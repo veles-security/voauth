@@ -6,7 +6,7 @@ import (
 	"crypto/rsa"
 	"testing"
 
-	"github.com/veles-security/vapi"
+	"github.com/veles-security/vapi/sig"
 	voauth "github.com/veles-security/voauth"
 )
 
@@ -15,7 +15,7 @@ func issueToken(t *testing.T) *voauth.JwtToken {
 	if err != nil {
 		t.Fatal(err)
 	}
-	issuer := voauth.NewJwtIssuer(voauth.WithIssuer("safe"), voauth.NewJwtSigner(keyRSA2048, vapi.SigAlgRS256))
+	issuer := voauth.NewJwtIssuer(voauth.WithIssuer("safe"), voauth.NewJwtSigner(keyRSA2048, sig.SigAlgRS256))
 	issuedToken, err := issuer.Issue(context.Background())
 	if err != nil {
 		t.Fatal(err)

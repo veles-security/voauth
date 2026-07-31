@@ -46,7 +46,7 @@ func (r *RefreshToken) Kind() string {
 	return RefreshTokenKind
 }
 
-var _ velesapi.Artifacter = &JwtToken{}
-var _ velesapi.Artifacter = &IDToken{}
-var _ velesapi.Artifacter = &AccessToken{}
-var _ velesapi.Artifacter = &RefreshToken{}
+var _ velesapi.Artifact = &JwtToken{}
+var _ velesapi.Artifact = &IDToken{}
+var _ velesapi.Artifact = &AccessToken{}
+var _ velesapi.Artifact = &RefreshToken{}

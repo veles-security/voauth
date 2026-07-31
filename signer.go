@@ -5,17 +5,17 @@ import (
 	"crypto"
 
 	"github.com/veles-security/vapi"
-	velesapi "github.com/veles-security/vapi"
+	"github.com/veles-security/vapi/sig"
 )
 
 type JwtSigner struct {
 	kid     string
 	key     crypto.Signer
-	alg     vapi.SigAlg
-	encoder velesapi.EncodeSchemer[*Cliams, JwtClaimsEncoderOption]
+	alg     sig.SigAlg
+	encoder vapi.Encoder[*Cliams, JwtClaimsEncoderOption]
 }
 
-func NewJwtSigner(key crypto.Signer, alg vapi.SigAlg, options ...JwtSignerPolicer) *JwtSigner {
+func NewJwtSigner(key crypto.Signer, alg sig.SigAlg, options ...JwtSignerPolicer) *JwtSigner {
 	signer := &JwtSigner{
 		key:     key,
 		alg:     alg,
@@ -56,11 +56,11 @@ func (j *JwtSigner) Sign(ctx context.Context, artifact *JwtToken, options ...Jwt
 	if err != nil {
 		return nil, err
 	}
-	signer := vapi.Signer{
+	signer := sig.Signer{
 		Key: config.key,
 		Alg: config.alg,
 	}
-	signature, err := signer.Sign(ctx, vapi.Message(claimsEncoded))
+	signature, err := signer.Sign(ctx, sig.Message(claimsEncoded))
 	if err != nil {
 		return nil, err
 	}
@@ -84,7 +84,7 @@ func WithKey(key crypto.Signer) JwtSignerPolicer {
 	}
 }
 
-func WithAlg(alg vapi.SigAlg) JwtSignerPolicer {
+func WithAlg(alg sig.SigAlg) JwtSignerPolicer {
 	return func(j *JwtSigner) {
 		j.alg = alg
 	}
@@ -92,5 +92,5 @@ func WithAlg(alg vapi.SigAlg) JwtSignerPolicer {
 
 // ----------------------------------------------------------------------------
 
-var _ vapi.SignerSchemer[*JwtToken, JwtSignerPolicer] = &JwtSigner{}
+var _ vapi.Signer[*JwtToken, JwtSignerPolicer] = &JwtSigner{}
 var _ JwtIssuerOption = &JwtSigner{}

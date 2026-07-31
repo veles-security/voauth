@@ -5,11 +5,10 @@ import (
 	"net/http"
 
 	"github.com/veles-security/vapi"
-	velesapi "github.com/veles-security/vapi"
 )
 
 type JwtInjector struct {
-	encoder velesapi.EncodeSchemer[*JwtToken, JwtEncoderOption]
+	encoder vapi.Encoder[*JwtToken, JwtEncoderOption]
 }
 
 type JwtInjectorOption func(*JwtInjector)
@@ -35,4 +34,4 @@ func (j *JwtInjector) InjectArtifact(ctx context.Context, request *http.Request,
 	return nil
 }
 
-var _ velesapi.InjectorSchemer[*http.Request, *JwtToken, JwtInjectorOption] = &JwtInjector{}
+var _ vapi.Injector[*http.Request, *JwtToken, JwtInjectorOption] = &JwtInjector{}

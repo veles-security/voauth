@@ -10,7 +10,7 @@ import (
 )
 
 type JwtExtractor struct {
-	decoder velesapi.DecodeSchemer[*JwtToken, JwtDecoderOption]
+	decoder velesapi.Decoder[*JwtToken, JwtDecoderOption]
 }
 
 type JwtExtractorOption func(*JwtExtractor)
@@ -51,4 +51,4 @@ func (j *JwtExtractor) ExtractArtifact(ctx context.Context, request *http.Reques
 	return j.decoder.Decode(ctx, []byte(credential))
 }
 
-var _ velesapi.ExtractorSchemer[*http.Request, *JwtToken, JwtExtractorOption] = &JwtExtractor{}
+var _ velesapi.Extractor[*http.Request, *JwtToken, JwtExtractorOption] = &JwtExtractor{}

@@ -5,7 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 
-	velesapi "github.com/veles-security/vapi"
+	"github.com/veles-security/vapi"
 )
 
 type JwtEncoder struct{}
@@ -80,5 +80,5 @@ func (j *JwtClaimsEncoder) Encode(ctx context.Context, claims *Cliams, options .
 	return encoded, nil
 }
 
-var _ velesapi.EncodeSchemer[*JwtToken, JwtEncoderOption] = &JwtEncoder{}
-var _ velesapi.EncodeSchemer[*Cliams, JwtClaimsEncoderOption] = &JwtClaimsEncoder{}
+var _ vapi.Encoder[*JwtToken, JwtEncoderOption] = &JwtEncoder{}
+var _ vapi.Encoder[*Cliams, JwtClaimsEncoderOption] = &JwtClaimsEncoder{}

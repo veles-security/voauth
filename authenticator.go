@@ -5,45 +5,46 @@ import (
 	"errors"
 	"net/http"
 
-	velesapi "github.com/veles-security/vapi"
+	"github.com/veles-security/vapi"
 )
 
 type JwtAuthenticator struct {
-	tokenExtractor  velesapi.ExtractorSchemer[*http.Request, *JwtToken, JwtExtractorOption]
-	tokenValidator  velesapi.ValidationSchemer[*JwtToken, JwtValidationPolicer]
-	principalMapper velesapi.PrincipalSchemer[*JwtToken, JwtPrincipalMapper]
+	tokenExtractor  vapi.Extractor[*http.Request, *JwtToken, JwtExtractorOption]
+	tokenValidator  vapi.Validator[*JwtToken, JwtValidationPolicer]
+	principalMapper vapi.PrincipalExtractor[*JwtToken, JwtPrincipalMapper]
 }
 
 type JwtAuthenticatorOption func(*JwtAuthenticator)
 
-func NewJwtAuthenticator(options ...JwtAuthenticatorOption) *JwtAuthenticator {
+func NewJwtAuthenticator(
+	extractor vapi.Extractor[*http.Request, *JwtToken, JwtExtractorOption],
+	validator vapi.Validator[*JwtToken, JwtValidationPolicer],
+	mapper vapi.PrincipalExtractor[*JwtToken, JwtPrincipalMapper],
+) *JwtAuthenticator {
 	authenticator := &JwtAuthenticator{}
-	for _, option := range options {
-		option(authenticator)
-	}
-	if authenticator.tokenExtractor == nil {
-		authenticator.tokenExtractor = NewJwtExtractor()
-	}
+	authenticator.tokenExtractor = extractor
+	authenticator.tokenValidator = validator
+	authenticator.principalMapper = mapper
 	return authenticator
 }
 
-// Authenticate implements [velesapi.AuthSchemer].
-func (j *JwtAuthenticator) Authenticate(ctx context.Context, request *http.Request) (velesapi.Principaler, error) {
+// Authenticate implements [vapi.AuthSchemer].
+func (j *JwtAuthenticator) Authenticate(ctx context.Context, request *http.Request) (vapi.Principal, error) {
 	token, err := j.tokenExtractor.ExtractArtifact(ctx, request)
 	if err != nil {
-		if errors.Is(err, velesapi.ErrNotApplicable) {
+		if errors.Is(err, vapi.ErrNotApplicable) {
 			return nil, err
 		}
-		return nil, velesapi.NewErrorCategory(velesapi.ErrUnauthenticated, err)
+		return nil, vapi.NewErrorCategory(vapi.ErrUnauthenticated, err)
 	}
 	if err := j.tokenValidator.Validate(ctx, token); err != nil {
-		return nil, velesapi.NewErrorCategory(velesapi.ErrUnauthenticated, err)
+		return nil, vapi.NewErrorCategory(vapi.ErrUnauthenticated, err)
 	}
 	principal, err := j.principalMapper.ExtractPrincipal(ctx, token)
 	if err != nil {
-		return nil, velesapi.NewErrorCategory(velesapi.ErrUnauthenticated, err)
+		return nil, vapi.NewErrorCategory(vapi.ErrUnauthenticated, err)
 	}
 	return principal, nil
 }
 
-var _ velesapi.AuthSchemer[*http.Request] = &JwtAuthenticator{}
+var _ vapi.Authenticator[*http.Request] = &JwtAuthenticator{}
