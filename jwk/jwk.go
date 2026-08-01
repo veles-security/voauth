@@ -1,4 +1,4 @@
-package voauth
+package jwk
 
 import (
 	"github.com/veles-security/vapi"
@@ -14,7 +14,7 @@ type Jwk struct {
 
 // Kind implements [vapi.Artifacter].
 func (j *Jwk) Kind() string {
-	return TokenKind
+	return JwkKind
 }
 
 var _ vapi.Artifact = &Jwk{}
