@@ -17,7 +17,7 @@ type Encoder struct{}
 
 type EncoderOption func(*Encoder)
 
-func NewJwkEncoder(options ...EncoderOption) *Encoder {
+func NewEncoder(options ...EncoderOption) *Encoder {
 	encoder := &Encoder{}
 	for _, option := range options {
 		option(encoder)

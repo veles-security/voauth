@@ -20,7 +20,7 @@ type Decoder struct{}
 
 type DecoderOption func(*Decoder)
 
-func NewJwkDecoder(options ...DecoderOption) *Decoder {
+func NewDecoder(options ...DecoderOption) *Decoder {
 	encoder := &Decoder{}
 	for _, option := range options {
 		option(encoder)
