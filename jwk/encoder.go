@@ -27,7 +27,7 @@ func NewJwkEncoder(options ...JwkEncoderOption) *JwkEncoder {
 
 // Encode implements [vapi.Encoder].
 func (j *JwkEncoder) Encode(ctx context.Context, artifact *Jwk, options ...JwkEncoderOption) ([]byte, error) {
-	if artifact == nil || artifact.Key.Key == nil {
+	if artifact == nil || artifact.Key == nil {
 		return nil, fmt.Errorf("cannot encode nil JWK or key")
 	}
 
@@ -35,9 +35,9 @@ func (j *JwkEncoder) Encode(ctx context.Context, artifact *Jwk, options ...JwkEn
 	if err != nil {
 		return nil, err
 	}
-	representation := JwkRepresentation{Alg: alg, Kid: artifact.Key.Kid}
+	representation := JwkRepresentation{Alg: alg}
 
-	switch key := artifact.Key.Key.Public().(type) {
+	switch key := artifact.Key.(type) {
 	case []byte:
 		representation.Kty = "oct"
 		encoded := byteBuffer(base64.RawURLEncoding.EncodeToString(key))
