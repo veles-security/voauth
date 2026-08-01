@@ -13,12 +13,12 @@ import (
 	"github.com/veles-security/vapi"
 )
 
-type JwkEncoder struct{}
+type Encoder struct{}
 
-type JwkEncoderOption func(*JwkEncoder)
+type EncoderOption func(*Encoder)
 
-func NewJwkEncoder(options ...JwkEncoderOption) *JwkEncoder {
-	encoder := &JwkEncoder{}
+func NewJwkEncoder(options ...EncoderOption) *Encoder {
+	encoder := &Encoder{}
 	for _, option := range options {
 		option(encoder)
 	}
@@ -26,7 +26,7 @@ func NewJwkEncoder(options ...JwkEncoderOption) *JwkEncoder {
 }
 
 // Encode implements [vapi.Encoder].
-func (j *JwkEncoder) Encode(ctx context.Context, artifact *Jwk, options ...JwkEncoderOption) ([]byte, error) {
+func (j *Encoder) Encode(ctx context.Context, artifact *Jwk, options ...EncoderOption) ([]byte, error) {
 	if artifact == nil || artifact.Key == nil {
 		return nil, fmt.Errorf("cannot encode nil JWK or key")
 	}
@@ -35,7 +35,7 @@ func (j *JwkEncoder) Encode(ctx context.Context, artifact *Jwk, options ...JwkEn
 	if err != nil {
 		return nil, err
 	}
-	representation := JwkRepresentation{Alg: alg}
+	representation := JwkRepresentation{Alg: alg, Kid: artifact.Kid}
 
 	switch key := artifact.Key.(type) {
 	case []byte:
@@ -87,4 +87,4 @@ func (j *JwkEncoder) Encode(ctx context.Context, artifact *Jwk, options ...JwkEn
 	return json.Marshal(representation)
 }
 
-var _ vapi.Encoder[*Jwk, JwkEncoderOption] = &JwkEncoder{}
+var _ vapi.Encoder[*Jwk, EncoderOption] = &Encoder{}
