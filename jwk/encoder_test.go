@@ -2,6 +2,7 @@ package jwk_test
 
 import (
 	"context"
+	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/rsa"
 	"reflect"
@@ -10,6 +11,57 @@ import (
 	"github.com/veles-security/vapi/sig"
 	"github.com/veles-security/voauth/jwk"
 )
+
+func TestEncoder_ThumbprintKid(t *testing.T) {
+	publicKey := ed25519.PublicKey{
+		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
+		16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31,
+	}
+
+	tests := []struct {
+		name     string
+		encoder  *jwk.Encoder
+		artifact *jwk.Jwk
+		options  []jwk.EncoderOption
+		wantKid  string
+	}{
+		{
+			name:     "constructor option calculates RFC 7638 thumbprint",
+			encoder:  jwk.NewEncoder(jwk.WithThumbprintKid()),
+			artifact: &jwk.Jwk{Alg: sig.SigAlgEd25519, Key: publicKey},
+			wantKid:  "P7IdLIpiTZiFaIoOSqbX3JrSyps3hvZ4Y2SieP96XIY",
+		},
+		{
+			name:     "encode option calculates thumbprint",
+			encoder:  jwk.NewEncoder(),
+			artifact: &jwk.Jwk{Alg: sig.SigAlgEd25519, Key: publicKey},
+			options:  []jwk.EncoderOption{jwk.WithThumbprintKid()},
+			wantKid:  "P7IdLIpiTZiFaIoOSqbX3JrSyps3hvZ4Y2SieP96XIY",
+		},
+		{
+			name:     "explicit kid is preserved",
+			encoder:  jwk.NewEncoder(jwk.WithThumbprintKid()),
+			artifact: &jwk.Jwk{Kid: "explicit", Alg: sig.SigAlgEd25519, Key: publicKey},
+			wantKid:  "explicit",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			encoded, err := tt.encoder.Encode(context.Background(), tt.artifact, tt.options...)
+			if err != nil {
+				t.Fatalf("Encode() failed: %v", err)
+			}
+			decoded, err := jwk.NewDecoder().Decode(context.Background(), encoded)
+			if err != nil {
+				t.Fatalf("Decode() failed: %v", err)
+			}
+			if decoded.Kid != tt.wantKid {
+				t.Errorf("decoded Kid = %q, want %q", decoded.Kid, tt.wantKid)
+			}
+		})
+	}
+}
 
 func TestEncoder_Encode(t *testing.T) {
 	keyRSA2048, err := rsa.GenerateKey(rand.Reader, 2048)

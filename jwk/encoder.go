@@ -13,14 +13,19 @@ import (
 	"github.com/veles-security/vapi"
 )
 
-type Encoder struct{}
+type Encoder struct {
+	options []EncoderOption
+}
 
-type EncoderOption func(*Encoder)
+type EncoderOption interface {
+	Configure(*Encoder)
+	Apply(*Jwk, *JwkRepresentation) error
+}
 
 func NewEncoder(options ...EncoderOption) *Encoder {
 	encoder := &Encoder{}
 	for _, option := range options {
-		option(encoder)
+		option.Configure(encoder)
 	}
 	return encoder
 }
@@ -82,6 +87,12 @@ func (j *Encoder) Encode(ctx context.Context, artifact *Jwk, options ...EncoderO
 		representation.X = &x
 	default:
 		return nil, fmt.Errorf("unsupported JWK key type %T", key)
+	}
+
+	for _, option := range append(j.options[:len(j.options):len(j.options)], options...) {
+		if err := option.Apply(artifact, &representation); err != nil {
+			return nil, err
+		}
 	}
 
 	return json.Marshal(representation)
