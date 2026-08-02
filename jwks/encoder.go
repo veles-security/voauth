@@ -44,3 +44,5 @@ func (j *Encoder) Encode(ctx context.Context, artifact *Jwks, options ...Encoder
 	}
 	return json.Marshal(representation)
 }
+
+var _ vapi.Encoder[*Jwks, EncoderOption] = &Encoder{}
