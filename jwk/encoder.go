@@ -17,30 +17,44 @@ type Encoder struct {
 	options []EncoderOption
 }
 
+// EncodeFunc populates a JWK representation. Encoder options decorate
+// functions of this type.
+type EncodeFunc func(context.Context, *Jwk, *JwkRepresentation) error
+
 type EncoderOption interface {
-	Configure(*Encoder)
-	Apply(*Jwk, *JwkRepresentation) error
+	Apply(EncodeFunc) EncodeFunc
 }
 
 func NewEncoder(options ...EncoderOption) *Encoder {
-	encoder := &Encoder{}
-	for _, option := range options {
-		option.Configure(encoder)
-	}
-	return encoder
+	return &Encoder{options: append([]EncoderOption(nil), options...)}
 }
 
 // Encode implements [vapi.Encoder].
 func (j *Encoder) Encode(ctx context.Context, artifact *Jwk, options ...EncoderOption) ([]byte, error) {
+	encode := j.encode
+	allOptions := append(append([]EncoderOption(nil), j.options...), options...)
+	for i := len(allOptions) - 1; i >= 0; i-- {
+		encode = allOptions[i].Apply(encode)
+	}
+
+	representation := &JwkRepresentation{}
+	if err := encode(ctx, artifact, representation); err != nil {
+		return nil, err
+	}
+	return json.Marshal(representation)
+}
+
+func (j *Encoder) encode(_ context.Context, artifact *Jwk, representation *JwkRepresentation) error {
 	if artifact == nil || artifact.Key == nil {
-		return nil, fmt.Errorf("cannot encode nil JWK or key")
+		return fmt.Errorf("cannot encode nil JWK or key")
 	}
 
 	alg, err := artifact.Alg.ToOAuth()
 	if err != nil {
-		return nil, err
+		return err
 	}
-	representation := JwkRepresentation{Alg: alg, Kid: artifact.Kid}
+	representation.Alg = alg
+	representation.Kid = artifact.Kid
 
 	switch key := artifact.Key.(type) {
 	case []byte:
@@ -69,7 +83,7 @@ func (j *Encoder) Encode(ctx context.Context, artifact *Jwk, options ...EncoderO
 		case "P-521":
 			representation.Crv = "P-521"
 		default:
-			return nil, fmt.Errorf("unsupported elliptic curve %q", key.Curve.Params().Name)
+			return fmt.Errorf("unsupported elliptic curve %q", key.Curve.Params().Name)
 		}
 		size := (key.Curve.Params().BitSize + 7) / 8
 		x := make([]byte, size)
@@ -86,16 +100,10 @@ func (j *Encoder) Encode(ctx context.Context, artifact *Jwk, options ...EncoderO
 		x := byteBuffer(base64.RawURLEncoding.EncodeToString(key))
 		representation.X = &x
 	default:
-		return nil, fmt.Errorf("unsupported JWK key type %T", key)
+		return fmt.Errorf("unsupported JWK key type %T", key)
 	}
 
-	for _, option := range append(j.options[:len(j.options):len(j.options)], options...) {
-		if err := option.Apply(artifact, &representation); err != nil {
-			return nil, err
-		}
-	}
-
-	return json.Marshal(representation)
+	return nil
 }
 
 var _ vapi.Encoder[*Jwk, EncoderOption] = &Encoder{}

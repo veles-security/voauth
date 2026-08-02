@@ -1,0 +1,25 @@
+=== Symbol Results ===
+
+Vulnerability #1: GO-2026-5037
+    Inefficient candidate hostname parsing in crypto/x509
+  More info: https://pkg.go.dev/vuln/GO-2026-5037
+  Standard library
+    Found in: crypto/x509@go1.26
+    Fixed in: crypto/x509@go1.26.4
+    Example traces found:
+      #1: validator.go:212:61: voauth.JwtClockValidationPolicy.Validate calls fmt.Errorf, which eventually calls x509.HostnameError.Error
+
+Vulnerability #2: GO-2026-4601
+    Incorrect parsing of IPv6 host literals in net/url
+  More info: https://pkg.go.dev/vuln/GO-2026-4601
+  Standard library
+    Found in: net/url@go1.26
+    Fixed in: net/url@go1.26.1
+    Example traces found:
+      #1: jwk/decoder.go:87:25: jwk.Decoder.Decode calls elliptic.P521, which eventually calls url.Parse
+
+Your code is affected by 2 vulnerabilities from the Go standard library.
+This scan also found 15 vulnerabilities in packages you import and 8
+vulnerabilities in modules you require, but your code doesn't appear to call
+these vulnerabilities.
+Use '-show verbose' for more details.

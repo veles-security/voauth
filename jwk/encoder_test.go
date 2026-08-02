@@ -12,6 +12,36 @@ import (
 	"github.com/veles-security/voauth/jwk"
 )
 
+type encoderOptionFunc func(jwk.EncodeFunc) jwk.EncodeFunc
+
+func (f encoderOptionFunc) Apply(next jwk.EncodeFunc) jwk.EncodeFunc {
+	return f(next)
+}
+
+func TestEncoderOption_DecoratesEncode(t *testing.T) {
+	var calls []string
+	option := encoderOptionFunc(func(next jwk.EncodeFunc) jwk.EncodeFunc {
+		return func(ctx context.Context, artifact *jwk.Jwk, representation *jwk.JwkRepresentation) error {
+			calls = append(calls, "before")
+			err := next(ctx, artifact, representation)
+			calls = append(calls, "after")
+			return err
+		}
+	})
+
+	encoder := jwk.NewEncoder(option)
+	_, err := encoder.Encode(context.Background(), &jwk.Jwk{
+		Alg: sig.SigAlgEd25519,
+		Key: make(ed25519.PublicKey, ed25519.PublicKeySize),
+	})
+	if err != nil {
+		t.Fatalf("Encode() failed: %v", err)
+	}
+	if want := []string{"before", "after"}; !reflect.DeepEqual(calls, want) {
+		t.Errorf("decorator calls = %v, want %v", calls, want)
+	}
+}
+
 func TestEncoder_ThumbprintKid(t *testing.T) {
 	publicKey := ed25519.PublicKey{
 		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,

@@ -1,0 +1,73 @@
+Results:
+
+
+[/workspace/jwk/decoder.go:75] - G115 (CWE-190): integer overflow conversion uint64 -> int (Confidence: MEDIUM, Severity: HIGH)
+    74: 		}
+  > 75: 		result.Key = &rsa.PublicKey{N: new(big.Int).SetBytes(n), E: int(exponentValue)}
+    76: 	case "EC":
+
+Autofix: 
+
+[/workspace/jwk/decoder.go:72] - G115 (CWE-190): integer overflow conversion uint64 -> int (Confidence: MEDIUM, Severity: HIGH)
+    71: 		exponentValue := binary.BigEndian.Uint64(exponent[:])
+  > 72: 		if exponentValue == 0 || uint64(int(exponentValue)) != exponentValue {
+    73: 			return nil, fmt.Errorf("invalid RSA exponent")
+
+Autofix: 
+
+[/workspace/jwk/encoder.go:55] - G115 (CWE-190): integer overflow conversion int -> uint64 (Confidence: MEDIUM, Severity: HIGH)
+    54: 		var exponent [8]byte
+  > 55: 		binary.BigEndian.PutUint64(exponent[:], uint64(key.E))
+    56: 		start := 0
+
+Autofix: 
+
+[/workspace/jwk/decoder.go:72] - G115 (CWE-190): integer overflow conversion int -> uint64 (Confidence: MEDIUM, Severity: HIGH)
+    71: 		exponentValue := binary.BigEndian.Uint64(exponent[:])
+  > 72: 		if exponentValue == 0 || uint64(int(exponentValue)) != exponentValue {
+    73: 			return nil, fmt.Errorf("invalid RSA exponent")
+
+Autofix: 
+
+[/workspace/token.go:13] - G101 (CWE-798): Potential hardcoded credentials (Confidence: LOW, Severity: HIGH)
+    12: 	AccessTokenKind  = "oauth2:access_token"
+  > 13: 	RefreshTokenKind = "oauth2:refresh_token"
+    14: )
+
+Autofix: 
+
+[/workspace/token.go:12] - G101 (CWE-798): Potential hardcoded credentials (Confidence: LOW, Severity: HIGH)
+    11: 	IDTokenKind      = "oauth2:id_token"
+  > 12: 	AccessTokenKind  = "oauth2:access_token"
+    13: 	RefreshTokenKind = "oauth2:refresh_token"
+
+Autofix: 
+
+[/workspace/token.go:11] - G101 (CWE-798): Potential hardcoded credentials (Confidence: LOW, Severity: HIGH)
+    10: 	TokenKind        = "oauth2:token"
+  > 11: 	IDTokenKind      = "oauth2:id_token"
+    12: 	AccessTokenKind  = "oauth2:access_token"
+
+Autofix: 
+
+[/workspace/token.go:10] - G101 (CWE-798): Potential hardcoded credentials (Confidence: LOW, Severity: HIGH)
+    9: const (
+  > 10: 	TokenKind        = "oauth2:token"
+    11: 	IDTokenKind      = "oauth2:id_token"
+
+Autofix: 
+
+[/workspace/claims.go:4] - G101 (CWE-798): Potential hardcoded credentials (Confidence: LOW, Severity: HIGH)
+    3: const (
+  > 4: 	TokenClaimsKind = "oauth2:token:claims"
+    5: )
+
+Autofix: 
+
+Summary:
+  Gosec  : dev
+  Files  : 20
+  Lines  : 1540
+  Nosec  : 0
+  Issues : 9
+

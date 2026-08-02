@@ -1,6 +1,7 @@
 package jwk
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
@@ -15,21 +16,22 @@ func WithThumbprintKid() EncoderOption {
 	return thumbprintKidOption{}
 }
 
-func (option thumbprintKidOption) Configure(encoder *Encoder) {
-	encoder.options = append(encoder.options, option)
-}
+func (o thumbprintKidOption) Apply(next EncodeFunc) EncodeFunc {
+	return func(ctx context.Context, artifact *Jwk, representation *JwkRepresentation) error {
+		if err := next(ctx, artifact, representation); err != nil {
+			return err
+		}
+		if representation.Kid != "" {
+			return nil
+		}
 
-func (o thumbprintKidOption) Apply(_ *Jwk, representation *JwkRepresentation) error {
-	if representation.Kid != "" {
+		thumbprint, err := o.jwkThumbprint(*representation)
+		if err != nil {
+			return err
+		}
+		representation.Kid = thumbprint
 		return nil
 	}
-
-	thumbprint, err := o.jwkThumbprint(*representation)
-	if err != nil {
-		return err
-	}
-	representation.Kid = thumbprint
-	return nil
 }
 
 func (thumbprintKidOption) jwkThumbprint(jwk JwkRepresentation) (string, error) {
