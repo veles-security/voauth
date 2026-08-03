@@ -1,7 +1,7 @@
 package voauth
 
 const (
-	TokenClaimsKind = "oauth2:token:claims"
+	TokenClaimsKind = "oauth2:token:claims" // #nosec G101 -- token kind identifier, not a credential
 )
 
 type Cliams map[string]any

@@ -30,27 +30,37 @@ func NewWriter(options ...WriterOption) *Writer {
 
 func (i *Writer) WriteArtifact(ctx context.Context, carrier http.ResponseWriter, artifact *Jwks, options ...WriterOption) error {
 	if i.encoder == nil {
-		return fmt.Errorf("cannot write JWKS to HttpResposne with nil JWKS encoder")
+		return fmt.Errorf("cannot write JWKS response with nil JWKS encoder")
 	}
+
 	payload, err := i.encoder.Encode(ctx, artifact)
 	if err != nil {
-		return err
+		return fmt.Errorf("encode JWKS: %w", err)
 	}
 
 	response := &http.Response{
 		StatusCode: http.StatusOK,
 		Header:     carrier.Header(),
 	}
+
 	for _, option := range options {
 		if err := option.Apply(artifact, response); err != nil {
-			return err
+			return fmt.Errorf("apply writer option: %w", err)
 		}
 	}
 
 	response.Header.Set("Content-Type", "application/jwk-set+json")
+	response.Header.Set("X-Content-Type-Options", "nosniff")
+
 	carrier.WriteHeader(response.StatusCode)
-	_, err = carrier.Write(payload)
-	return err
+
+	// payload is JSON produced by the trusted JWKS encoder, not HTML.
+	_, err = carrier.Write(payload) // nosemgrep: go.lang.security.audit.xss.no-direct-write-to-responsewriter.no-direct-write-to-responsewriter
+	if err != nil {
+		return fmt.Errorf("write JWKS response: %w", err)
+	}
+
+	return nil
 }
 
 var _ vapi.Writer[http.ResponseWriter, *Jwks, WriterOption] = &Writer{}

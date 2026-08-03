@@ -7,10 +7,10 @@ import (
 )
 
 const (
-	TokenKind        = "oauth2:token"
-	IDTokenKind      = "oauth2:id_token"
-	AccessTokenKind  = "oauth2:access_token"
-	RefreshTokenKind = "oauth2:refresh_token"
+	TokenKind        = "oauth2:token"         // #nosec G101 -- token kind identifier, not a credential
+	IDTokenKind      = "oauth2:id_token"      // #nosec G101 -- token kind identifier, not a credential
+	AccessTokenKind  = "oauth2:access_token"  // #nosec G101 -- token kind identifier, not a credential
+	RefreshTokenKind = "oauth2:refresh_token" // #nosec G101 -- token kind identifier, not a credential
 )
 
 type JwtToken struct {

@@ -10,6 +10,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"math"
 	"math/big"
 
 	"github.com/veles-security/vapi"
@@ -71,7 +72,7 @@ func (j *Decoder) Decode(ctx context.Context, payload []byte, options ...Decoder
 		var exponent [8]byte
 		copy(exponent[8-len(e):], e)
 		exponentValue := binary.BigEndian.Uint64(exponent[:])
-		if exponentValue == 0 || uint64(int(exponentValue)) != exponentValue {
+		if exponentValue == 0 || exponentValue > math.MaxInt {
 			return nil, fmt.Errorf("invalid RSA exponent")
 		}
 		result.Key = &rsa.PublicKey{N: new(big.Int).SetBytes(n), E: int(exponentValue)}

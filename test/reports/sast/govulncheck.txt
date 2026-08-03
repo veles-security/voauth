@@ -16,7 +16,7 @@ Vulnerability #2: GO-2026-4601
     Found in: net/url@go1.26
     Fixed in: net/url@go1.26.1
     Example traces found:
-      #1: jwk/decoder.go:87:25: jwk.Decoder.Decode calls elliptic.P521, which eventually calls url.Parse
+      #1: jwk/decoder.go:90:25: jwk.Decoder.Decode calls elliptic.P521, which eventually calls url.Parse
 
 Your code is affected by 2 vulnerabilities from the Go standard library.
 This scan also found 15 vulnerabilities in packages you import and 8
