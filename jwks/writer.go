@@ -8,17 +8,17 @@ import (
 	"github.com/veles-security/vapi"
 )
 
-type Injector struct {
+type Writer struct {
 	encoder vapi.Encoder[*Jwks, EncoderOption]
 }
 
-type InjectorOption interface {
-	Configure(*Injector)
+type WriterOption interface {
+	Configure(*Writer)
 	Apply(*Jwks, *http.Response) error
 }
 
-func NewInjector(options ...InjectorOption) *Injector {
-	injector := &Injector{}
+func NewWriter(options ...WriterOption) *Writer {
+	injector := &Writer{}
 	for _, option := range options {
 		option.Configure(injector)
 	}
@@ -28,7 +28,7 @@ func NewInjector(options ...InjectorOption) *Injector {
 	return injector
 }
 
-func (i *Injector) InjectArtifact(ctx context.Context, carrier http.ResponseWriter, artifact *Jwks, options ...InjectorOption) error {
+func (i *Writer) WriteArtifact(ctx context.Context, carrier http.ResponseWriter, artifact *Jwks, options ...WriterOption) error {
 	if i.encoder == nil {
 		return fmt.Errorf("cannot write JWKS to HttpResposne with nil JWKS encoder")
 	}
@@ -52,3 +52,5 @@ func (i *Injector) InjectArtifact(ctx context.Context, carrier http.ResponseWrit
 	_, err = carrier.Write(payload)
 	return err
 }
+
+var _ vapi.Writer[http.ResponseWriter, *Jwks, WriterOption] = &Writer{}
