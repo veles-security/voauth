@@ -26,6 +26,9 @@ type EncoderOption interface {
 }
 
 func NewEncoder(options ...EncoderOption) *Encoder {
+	if len(options) == 0 {
+		options = []EncoderOption{WithThumbprintKid()}
+	}
 	return &Encoder{options: append([]EncoderOption(nil), options...)}
 }
 

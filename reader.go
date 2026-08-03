@@ -9,14 +9,14 @@ import (
 	velesapi "github.com/veles-security/vapi"
 )
 
-type JwtExtractor struct {
+type JwtReader struct {
 	decoder velesapi.Decoder[*JwtToken, JwtDecoderOption]
 }
 
-type JwtExtractorOption func(*JwtExtractor)
+type JwtReaderOption func(*JwtReader)
 
-func NewJwtExtractor(options ...JwtExtractorOption) *JwtExtractor {
-	extractor := &JwtExtractor{}
+func NewJwtExtractor(options ...JwtReaderOption) *JwtReader {
+	extractor := &JwtReader{}
 	for _, option := range options {
 		option(extractor)
 	}
@@ -26,8 +26,8 @@ func NewJwtExtractor(options ...JwtExtractorOption) *JwtExtractor {
 	return extractor
 }
 
-// AddCredentials implements [velesapi.ExtractorSchemer].
-func (j *JwtExtractor) ExtractArtifact(ctx context.Context, request *http.Request, options ...JwtExtractorOption) (*JwtToken, error) {
+// AddCredentials implements [velesapi.Reader].
+func (j *JwtReader) ReadArtifact(ctx context.Context, request *http.Request, options ...JwtReaderOption) (*JwtToken, error) {
 	if request == nil {
 		return nil, velesapi.NewErrorCategory(velesapi.ErrMalformed, errors.New("nil request"))
 	}
@@ -51,4 +51,4 @@ func (j *JwtExtractor) ExtractArtifact(ctx context.Context, request *http.Reques
 	return j.decoder.Decode(ctx, []byte(credential))
 }
 
-var _ velesapi.Extractor[*http.Request, *JwtToken, JwtExtractorOption] = &JwtExtractor{}
+var _ velesapi.Reader[*http.Request, *JwtToken, JwtReaderOption] = &JwtReader{}

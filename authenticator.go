@@ -9,7 +9,7 @@ import (
 )
 
 type JwtAuthenticator struct {
-	tokenExtractor  vapi.Extractor[*http.Request, *JwtToken, JwtExtractorOption]
+	tokenExtractor  vapi.Reader[*http.Request, *JwtToken, JwtReaderOption]
 	tokenValidator  vapi.Validator[*JwtToken, JwtValidationPolicer]
 	principalMapper vapi.PrincipalExtractor[*JwtToken, JwtPrincipalMapper]
 }
@@ -17,7 +17,7 @@ type JwtAuthenticator struct {
 type JwtAuthenticatorOption func(*JwtAuthenticator)
 
 func NewJwtAuthenticator(
-	extractor vapi.Extractor[*http.Request, *JwtToken, JwtExtractorOption],
+	extractor vapi.Reader[*http.Request, *JwtToken, JwtReaderOption],
 	validator vapi.Validator[*JwtToken, JwtValidationPolicer],
 	mapper vapi.PrincipalExtractor[*JwtToken, JwtPrincipalMapper],
 ) *JwtAuthenticator {
@@ -30,7 +30,7 @@ func NewJwtAuthenticator(
 
 // Authenticate implements [vapi.AuthSchemer].
 func (j *JwtAuthenticator) Authenticate(ctx context.Context, request *http.Request) (vapi.Principal, error) {
-	token, err := j.tokenExtractor.ExtractArtifact(ctx, request)
+	token, err := j.tokenExtractor.ReadArtifact(ctx, request)
 	if err != nil {
 		if errors.Is(err, vapi.ErrNotApplicable) {
 			return nil, err
