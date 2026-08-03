@@ -26,15 +26,15 @@ func NewEncoder(options ...EncoderOption) *Encoder {
 
 // Encode implements [vapi.Encoder].
 func (j *Encoder) Encode(ctx context.Context, artifact *Jwks, options ...EncoderOption) ([]byte, error) {
-	if artifact == nil || artifact.Jwk == nil {
+	if artifact == nil || artifact.Keys == nil {
 		return nil, fmt.Errorf("cannot encode nil JWK")
 	}
-	if len(artifact.Jwk) == 0 {
+	if len(artifact.Keys) == 0 {
 		return nil, fmt.Errorf("cannot encode empty JWK set")
 	}
-	representation := JwksRepresentation{Keys: make([]jwk.JwkRepresentation, len(artifact.Jwk))}
-	for i := range artifact.Jwk {
-		encoded, err := j.jwkEncoder.Encode(ctx, &artifact.Jwk[i])
+	representation := JwksRepresentation{Keys: make([]jwk.JwkRepresentation, len(artifact.Keys))}
+	for i := range artifact.Keys {
+		encoded, err := j.jwkEncoder.Encode(ctx, &artifact.Keys[i])
 		if err != nil {
 			return nil, err
 		}
