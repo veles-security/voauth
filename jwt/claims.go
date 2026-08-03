@@ -1,4 +1,4 @@
-package voauth
+package jwt
 
 const (
 	TokenClaimsKind = "oauth2:token:claims" // #nosec G101 -- token kind identifier, not a credential

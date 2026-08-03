@@ -1,10 +1,11 @@
-package voauth
+package jwt
 
 import (
 	"context"
 	"crypto"
 	"crypto/subtle"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -49,10 +50,10 @@ type JwtTypeValidationPolicy struct {
 // Validate implements [JwtValidationPolicer].
 func (p *JwtTypeValidationPolicy) Validate(_ context.Context, token *JwtToken) error {
 	if token == nil {
-		return vapi.NewErrorCategory(vapi.ErrMalformed, fmt.Errorf("nil JWT"))
+		return vapi.NewErrorCategory(vapi.ErrMalformed, errors.New("nil JWT"))
 	}
 	if token.Header["typ"] != p.Type {
-		return vapi.NewErrorCategory(vapi.ErrPolicyRejected, fmt.Errorf("JWT has the wrong type"))
+		return vapi.NewErrorCategory(vapi.ErrPolicyRejected, errors.New("JWT has the wrong type"))
 	}
 	return nil
 }
@@ -70,19 +71,19 @@ type JwtNonceValidationPolicy struct {
 // Validate implements [JwtValidationPolicer].
 func (p *JwtNonceValidationPolicy) Validate(ctx context.Context, token *JwtToken) error {
 	if token == nil {
-		return vapi.NewErrorCategory(vapi.ErrMalformed, fmt.Errorf("nil JWT"))
+		return vapi.NewErrorCategory(vapi.ErrMalformed, errors.New("nil JWT"))
 	}
 
 	nonce, ok := token.Claims["nonce"]
 	if !ok {
-		return vapi.NewErrorCategory(vapi.ErrBinding, fmt.Errorf("JWT nonce is missing"))
+		return vapi.NewErrorCategory(vapi.ErrBinding, errors.New("JWT nonce is missing"))
 	}
 	value, ok := nonce.(string)
 	if !ok {
-		return vapi.NewErrorCategory(vapi.ErrMalformed, fmt.Errorf("JWT claim %q must be a string", "nonce"))
+		return vapi.NewErrorCategory(vapi.ErrMalformed, errors.New("JWT claim 'nonce' must be a string"))
 	}
 	if subtle.ConstantTimeCompare([]byte(value), []byte(p.Nonce)) != 1 {
-		return vapi.NewErrorCategory(vapi.ErrBinding, fmt.Errorf("JWT has the wrong nonce"))
+		return vapi.NewErrorCategory(vapi.ErrBinding, errors.New("JWT has the wrong nonce"))
 	}
 	return nil
 }
@@ -100,19 +101,19 @@ type JwtIssuerValidationPolicy struct {
 // Validate implements [JwtValidationPolicer].
 func (p *JwtIssuerValidationPolicy) Validate(ctx context.Context, token *JwtToken) error {
 	if token == nil {
-		return vapi.NewErrorCategory(vapi.ErrMalformed, fmt.Errorf("nil JWT"))
+		return vapi.NewErrorCategory(vapi.ErrMalformed, errors.New("nil JWT"))
 	}
 
 	issuer, ok := token.Claims["iss"]
 	if !ok {
-		return vapi.NewErrorCategory(vapi.ErrWrongIssuer, fmt.Errorf("JWT issuer is missing"))
+		return vapi.NewErrorCategory(vapi.ErrWrongIssuer, errors.New("JWT issuer is missing"))
 	}
 	value, ok := issuer.(string)
 	if !ok {
-		return vapi.NewErrorCategory(vapi.ErrMalformed, fmt.Errorf("JWT claim %q must be a string", "iss"))
+		return vapi.NewErrorCategory(vapi.ErrMalformed, errors.New("JWT claim 'iss' must be a string"))
 	}
 	if value != p.Issuer {
-		return vapi.NewErrorCategory(vapi.ErrWrongIssuer, fmt.Errorf("JWT has the wrong issuer"))
+		return vapi.NewErrorCategory(vapi.ErrWrongIssuer, errors.New("JWT has the wrong issuer"))
 	}
 	return nil
 }
@@ -131,12 +132,12 @@ type JwtAudienceValidationPolicy struct {
 // Validate implements [JwtValidationPolicer].
 func (p *JwtAudienceValidationPolicy) Validate(ctx context.Context, token *JwtToken) error {
 	if token == nil {
-		return vapi.NewErrorCategory(vapi.ErrMalformed, fmt.Errorf("nil JWT"))
+		return vapi.NewErrorCategory(vapi.ErrMalformed, errors.New("nil JWT"))
 	}
 
 	audience, ok := token.Claims["aud"]
 	if !ok {
-		return vapi.NewErrorCategory(vapi.ErrWrongAudience, fmt.Errorf("JWT audience is missing"))
+		return vapi.NewErrorCategory(vapi.ErrWrongAudience, errors.New("JWT audience is missing"))
 	}
 	matches := func(value string) bool {
 		if value == p.Audience {
@@ -152,20 +153,20 @@ func (p *JwtAudienceValidationPolicy) Validate(ctx context.Context, token *JwtTo
 	switch value := audience.(type) {
 	case string:
 		if value == "" {
-			return vapi.NewErrorCategory(vapi.ErrMalformed, fmt.Errorf("JWT claim %q must not be empty", "aud"))
+			return vapi.NewErrorCategory(vapi.ErrMalformed, errors.New("JWT claim 'aud' must not be empty"))
 		}
 		if matches(value) {
 			return nil
 		}
 	case []any:
 		if len(value) == 0 {
-			return vapi.NewErrorCategory(vapi.ErrMalformed, fmt.Errorf("JWT claim %q must not be empty", "aud"))
+			return vapi.NewErrorCategory(vapi.ErrMalformed, errors.New("JWT claim 'aud' must not be empty"))
 		}
 		matched := false
 		for _, item := range value {
 			text, ok := item.(string)
 			if !ok || text == "" {
-				return vapi.NewErrorCategory(vapi.ErrMalformed, fmt.Errorf("JWT claim %q must contain only strings", "aud"))
+				return vapi.NewErrorCategory(vapi.ErrMalformed, errors.New("JWT claim 'aud' must contain only strings"))
 			}
 			if matches(text) {
 				matched = true
@@ -176,12 +177,12 @@ func (p *JwtAudienceValidationPolicy) Validate(ctx context.Context, token *JwtTo
 		}
 	case []string:
 		if len(value) == 0 {
-			return vapi.NewErrorCategory(vapi.ErrMalformed, fmt.Errorf("JWT claim %q must not be empty", "aud"))
+			return vapi.NewErrorCategory(vapi.ErrMalformed, errors.New("JWT claim 'aud' must not be empty"))
 		}
 		matched := false
 		for _, item := range value {
 			if item == "" {
-				return vapi.NewErrorCategory(vapi.ErrMalformed, fmt.Errorf("JWT claim %q must contain only strings", "aud"))
+				return vapi.NewErrorCategory(vapi.ErrMalformed, errors.New("JWT claim 'aud' must contain only strings"))
 			}
 			if matches(item) {
 				matched = true
@@ -191,9 +192,9 @@ func (p *JwtAudienceValidationPolicy) Validate(ctx context.Context, token *JwtTo
 			return nil
 		}
 	default:
-		return vapi.NewErrorCategory(vapi.ErrMalformed, fmt.Errorf("JWT claim %q must be a string or an array of strings", "aud"))
+		return vapi.NewErrorCategory(vapi.ErrMalformed, errors.New("JWT claim 'aud' must be a string or an array of strings"))
 	}
-	return vapi.NewErrorCategory(vapi.ErrWrongAudience, fmt.Errorf("JWT has the wrong audience"))
+	return vapi.NewErrorCategory(vapi.ErrWrongAudience, errors.New("JWT has the wrong audience"))
 }
 
 // ----------------------------------------------------------------------------
@@ -209,19 +210,19 @@ type JwtClockValidationPolicy struct {
 // Validate implements [JwtValidationPolicer].
 func (p *JwtClockValidationPolicy) Validate(ctx context.Context, token *JwtToken) error {
 	if token == nil {
-		return vapi.NewErrorCategory(vapi.ErrMalformed, fmt.Errorf("nil JWT"))
+		return vapi.NewErrorCategory(vapi.ErrMalformed, errors.New("nil JWT"))
 	}
 
 	now := float64(time.Now().UnixNano()) / float64(time.Second)
 	if exp, ok, err := p.numericDate(token.Claims, "exp"); err != nil {
 		return err
 	} else if ok && now >= exp+p.Leeway.Seconds() {
-		return vapi.NewErrorCategory(vapi.ErrExpired, fmt.Errorf("JWT expired"))
+		return vapi.NewErrorCategory(vapi.ErrExpired, errors.New("JWT expired"))
 	}
 	if nbf, ok, err := p.numericDate(token.Claims, "nbf"); err != nil {
 		return err
 	} else if ok && now+p.Leeway.Seconds() < nbf {
-		return vapi.NewErrorCategory(vapi.ErrNotYetValid, fmt.Errorf("JWT is not valid yet"))
+		return vapi.NewErrorCategory(vapi.ErrNotYetValid, errors.New("JWT is not valid yet"))
 	}
 	return nil
 }

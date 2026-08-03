@@ -1,4 +1,4 @@
-package voauth_test
+package jwt_test
 
 import (
 	"context"
@@ -7,15 +7,15 @@ import (
 	"testing"
 
 	"github.com/veles-security/vapi/sig"
-	voauth "github.com/veles-security/voauth"
+	"github.com/veles-security/voauth/jwt"
 )
 
-func issueToken(t *testing.T) *voauth.JwtToken {
+func issueToken(t *testing.T) *jwt.JwtToken {
 	keyRSA2048, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		t.Fatal(err)
 	}
-	issuer := voauth.NewJwtIssuer(voauth.WithIssuer("safe"), voauth.NewJwtSigner(keyRSA2048, sig.SigAlgRS256))
+	issuer := jwt.NewJwtIssuer(jwt.WithIssuer("safe"), jwt.NewJwtSigner(keyRSA2048, sig.SigAlgRS256))
 	issuedToken, err := issuer.Issue(context.Background())
 	if err != nil {
 		t.Fatal(err)
@@ -28,13 +28,13 @@ func TestJwtEncoder_Encode(t *testing.T) {
 	tests := []struct {
 		name string // description of this test case
 		// Named input parameters for target function.
-		token   *voauth.JwtToken
+		token   *jwt.JwtToken
 		want    []byte
 		wantErr bool
 	}{
 		{
 			name:  "minimal",
-			token: &voauth.JwtToken{Header: map[string]string{"alg": "none"}, Claims: map[string]any{"sub": "me"}},
+			token: &jwt.JwtToken{Header: map[string]string{"alg": "none"}, Claims: map[string]any{"sub": "me"}},
 			want:  []byte("eyJhbGciOiJub25lIn0.eyJzdWIiOiJtZSJ9."),
 		},
 		{
@@ -44,7 +44,7 @@ func TestJwtEncoder_Encode(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			j := voauth.NewJwtEncoder()
+			j := jwt.NewJwtEncoder()
 			got, gotErr := j.Encode(context.Background(), tt.token)
 			if gotErr != nil {
 				if !tt.wantErr {

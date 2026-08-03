@@ -1,4 +1,4 @@
-package voauth
+package jwt
 
 import (
 	"bytes"

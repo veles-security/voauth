@@ -7,7 +7,7 @@ Vulnerability #1: GO-2026-5037
     Found in: crypto/x509@go1.26
     Fixed in: crypto/x509@go1.26.4
     Example traces found:
-      #1: validator.go:212:61: voauth.JwtClockValidationPolicy.Validate calls fmt.Errorf, which eventually calls x509.HostnameError.Error
+      #1: jwk/decoder.go:55:67: jwk.Decoder.Decode calls fmt.Errorf, which eventually calls x509.HostnameError.Error
 
 Vulnerability #2: GO-2026-4601
     Incorrect parsing of IPv6 host literals in net/url
@@ -16,7 +16,7 @@ Vulnerability #2: GO-2026-4601
     Found in: net/url@go1.26
     Fixed in: net/url@go1.26.1
     Example traces found:
-      #1: jwk/decoder.go:90:25: jwk.Decoder.Decode calls elliptic.P521, which eventually calls url.Parse
+      #1: jwk/decoder.go:91:25: jwk.Decoder.Decode calls elliptic.P521, which eventually calls url.Parse
 
 Your code is affected by 2 vulnerabilities from the Go standard library.
 This scan also found 15 vulnerabilities in packages you import and 8
