@@ -13,42 +13,42 @@ import (
 	"github.com/veles-security/vapi/sig"
 )
 
-type JwtValidationPolicer interface {
-	Validate(context.Context, *JwtToken) error
+type ValidationPolicer interface {
+	Validate(context.Context, *Token) error
 }
 
-type jwtValidationPolicyFunc func(context.Context, *JwtToken) error
+type validationPolicyFunc func(context.Context, *Token) error
 
-func (f jwtValidationPolicyFunc) Validate(ctx context.Context, token *JwtToken) error {
+func (f validationPolicyFunc) Validate(ctx context.Context, token *Token) error {
 	return f(ctx, token)
 }
 
 // ----------------------------------------------------------------------------
 
-type JwtSignatureValidationPolicy struct {
+type SignatureValidationPolicy struct {
 	Kid string
 	Alg sig.SigAlg
 	Key crypto.PublicKey
 }
 
-// Validate implements [JwtValidationPolicer].
-func (j *JwtSignatureValidationPolicy) Validate(_ context.Context, token *JwtToken) error {
+// Validate implements [ValidationPolicer].
+func (j *SignatureValidationPolicy) Validate(_ context.Context, token *Token) error {
 
 	return nil
 }
 
 // ----------------------------------------------------------------------------
 
-func WithType(tokenType string) JwtValidationPolicer {
-	return &JwtTypeValidationPolicy{Type: tokenType}
+func WithType(tokenType string) ValidationPolicer {
+	return &TypeValidationPolicy{Type: tokenType}
 }
 
-type JwtTypeValidationPolicy struct {
+type TypeValidationPolicy struct {
 	Type string
 }
 
-// Validate implements [JwtValidationPolicer].
-func (p *JwtTypeValidationPolicy) Validate(_ context.Context, token *JwtToken) error {
+// Validate implements [ValidationPolicer].
+func (p *TypeValidationPolicy) Validate(_ context.Context, token *Token) error {
 	if token == nil {
 		return vapi.NewErrorCategory(vapi.ErrMalformed, errors.New("nil JWT"))
 	}
@@ -60,16 +60,16 @@ func (p *JwtTypeValidationPolicy) Validate(_ context.Context, token *JwtToken) e
 
 // ----------------------------------------------------------------------------
 
-func WithNonce(nonce string) JwtValidationPolicer {
-	return &JwtNonceValidationPolicy{Nonce: nonce}
+func WithNonce(nonce string) ValidationPolicer {
+	return &NonceValidationPolicy{Nonce: nonce}
 }
 
-type JwtNonceValidationPolicy struct {
+type NonceValidationPolicy struct {
 	Nonce string
 }
 
-// Validate implements [JwtValidationPolicer].
-func (p *JwtNonceValidationPolicy) Validate(ctx context.Context, token *JwtToken) error {
+// Validate implements [ValidationPolicer].
+func (p *NonceValidationPolicy) Validate(ctx context.Context, token *Token) error {
 	if token == nil {
 		return vapi.NewErrorCategory(vapi.ErrMalformed, errors.New("nil JWT"))
 	}
@@ -90,7 +90,7 @@ func (p *JwtNonceValidationPolicy) Validate(ctx context.Context, token *JwtToken
 
 // ----------------------------------------------------------------------------
 
-func WithValidIssuer(issuer string) JwtValidationPolicer {
+func WithValidIssuer(issuer string) ValidationPolicer {
 	return &JwtIssuerValidationPolicy{Issuer: issuer}
 }
 
@@ -98,8 +98,8 @@ type JwtIssuerValidationPolicy struct {
 	Issuer string
 }
 
-// Validate implements [JwtValidationPolicer].
-func (p *JwtIssuerValidationPolicy) Validate(ctx context.Context, token *JwtToken) error {
+// Validate implements [ValidationPolicer].
+func (p *JwtIssuerValidationPolicy) Validate(ctx context.Context, token *Token) error {
 	if token == nil {
 		return vapi.NewErrorCategory(vapi.ErrMalformed, errors.New("nil JWT"))
 	}
@@ -120,17 +120,17 @@ func (p *JwtIssuerValidationPolicy) Validate(ctx context.Context, token *JwtToke
 
 // ----------------------------------------------------------------------------
 
-func WithValidAudience(audiences ...string) JwtValidationPolicer {
-	return &JwtAudienceValidationPolicy{Audiences: audiences}
+func WithValidAudience(audiences ...string) ValidationPolicer {
+	return &AudienceValidationPolicy{Audiences: audiences}
 }
 
-type JwtAudienceValidationPolicy struct {
+type AudienceValidationPolicy struct {
 	Audience  string
 	Audiences []string
 }
 
-// Validate implements [JwtValidationPolicer].
-func (p *JwtAudienceValidationPolicy) Validate(ctx context.Context, token *JwtToken) error {
+// Validate implements [ValidationPolicer].
+func (p *AudienceValidationPolicy) Validate(ctx context.Context, token *Token) error {
 	if token == nil {
 		return vapi.NewErrorCategory(vapi.ErrMalformed, errors.New("nil JWT"))
 	}
@@ -199,16 +199,16 @@ func (p *JwtAudienceValidationPolicy) Validate(ctx context.Context, token *JwtTo
 
 // ----------------------------------------------------------------------------
 
-func WithValidClock(leeway time.Duration) JwtValidationPolicer {
-	return &JwtClockValidationPolicy{Leeway: leeway}
+func WithValidClock(leeway time.Duration) ValidationPolicer {
+	return &ClockValidationPolicy{Leeway: leeway}
 }
 
-type JwtClockValidationPolicy struct {
+type ClockValidationPolicy struct {
 	Leeway time.Duration
 }
 
-// Validate implements [JwtValidationPolicer].
-func (p *JwtClockValidationPolicy) Validate(ctx context.Context, token *JwtToken) error {
+// Validate implements [ValidationPolicer].
+func (p *ClockValidationPolicy) Validate(ctx context.Context, token *Token) error {
 	if token == nil {
 		return vapi.NewErrorCategory(vapi.ErrMalformed, errors.New("nil JWT"))
 	}
@@ -227,7 +227,7 @@ func (p *JwtClockValidationPolicy) Validate(ctx context.Context, token *JwtToken
 	return nil
 }
 
-func (p *JwtClockValidationPolicy) numericDate(claims map[string]any, name string) (float64, bool, error) {
+func (p *ClockValidationPolicy) numericDate(claims map[string]any, name string) (float64, bool, error) {
 	value, ok := claims[name]
 	if !ok {
 		return 0, false, nil
@@ -251,12 +251,12 @@ func (p *JwtClockValidationPolicy) numericDate(claims map[string]any, name strin
 // ----------------------------------------------------------------------------
 
 type JwtValidator struct {
-	Policies []JwtValidationPolicer
+	Policies []ValidationPolicer
 }
 
-func NewJwtValidator(policies ...JwtValidationPolicer) *JwtValidator {
+func NewJwtValidator(policies ...ValidationPolicer) *JwtValidator {
 	validator := &JwtValidator{
-		Policies: []JwtValidationPolicer{},
+		Policies: []ValidationPolicer{},
 	}
 	for _, policy := range policies {
 		validator.Policies = append(validator.Policies, policy)
@@ -265,8 +265,8 @@ func NewJwtValidator(policies ...JwtValidationPolicer) *JwtValidator {
 }
 
 // Validate implements [vapi.ValidationSchemer].
-func (j *JwtValidator) Validate(ctx context.Context, token *JwtToken, policies ...JwtValidationPolicer) error {
-	validate := func(ps []JwtValidationPolicer) error {
+func (j *JwtValidator) Validate(ctx context.Context, token *Token, policies ...ValidationPolicer) error {
+	validate := func(ps []ValidationPolicer) error {
 		for _, p := range ps {
 			err := p.Validate(ctx, token)
 			if err != nil {
@@ -288,10 +288,10 @@ func (j *JwtValidator) Validate(ctx context.Context, token *JwtToken, policies .
 
 // ----------------------------------------------------------------------------
 
-var _ vapi.Validator[*JwtToken, JwtValidationPolicer] = &JwtValidator{}
-var _ JwtValidationPolicer = &JwtIssuerValidationPolicy{}
-var _ JwtValidationPolicer = &JwtAudienceValidationPolicy{}
-var _ JwtValidationPolicer = &JwtClockValidationPolicy{}
-var _ JwtValidationPolicer = &JwtSignatureValidationPolicy{}
-var _ JwtValidationPolicer = &JwtTypeValidationPolicy{}
-var _ JwtValidationPolicer = &JwtNonceValidationPolicy{}
+var _ vapi.Validator[*Token, ValidationPolicer] = &JwtValidator{}
+var _ ValidationPolicer = &JwtIssuerValidationPolicy{}
+var _ ValidationPolicer = &AudienceValidationPolicy{}
+var _ ValidationPolicer = &ClockValidationPolicy{}
+var _ ValidationPolicer = &SignatureValidationPolicy{}
+var _ ValidationPolicer = &TypeValidationPolicy{}
+var _ ValidationPolicer = &NonceValidationPolicy{}

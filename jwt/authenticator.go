@@ -8,20 +8,20 @@ import (
 	"github.com/veles-security/vapi"
 )
 
-type JwtAuthenticator struct {
-	tokenExtractor  vapi.Reader[*http.Request, *JwtToken, JwtReaderOption]
-	tokenValidator  vapi.Validator[*JwtToken, JwtValidationPolicer]
-	principalMapper vapi.PrincipalExtractor[*JwtToken, JwtPrincipalMapper]
+type Authenticator struct {
+	tokenExtractor  vapi.Reader[*http.Request, *Token, ReaderOption]
+	tokenValidator  vapi.Validator[*Token, ValidationPolicer]
+	principalMapper vapi.PrincipalExtractor[*Token, JwtPrincipalMapper]
 }
 
-type JwtAuthenticatorOption func(*JwtAuthenticator)
+type AuthenticatorOption func(*Authenticator)
 
-func NewJwtAuthenticator(
-	extractor vapi.Reader[*http.Request, *JwtToken, JwtReaderOption],
-	validator vapi.Validator[*JwtToken, JwtValidationPolicer],
-	mapper vapi.PrincipalExtractor[*JwtToken, JwtPrincipalMapper],
-) *JwtAuthenticator {
-	authenticator := &JwtAuthenticator{}
+func NewAuthenticator(
+	extractor vapi.Reader[*http.Request, *Token, ReaderOption],
+	validator vapi.Validator[*Token, ValidationPolicer],
+	mapper vapi.PrincipalExtractor[*Token, JwtPrincipalMapper],
+) *Authenticator {
+	authenticator := &Authenticator{}
 	authenticator.tokenExtractor = extractor
 	authenticator.tokenValidator = validator
 	authenticator.principalMapper = mapper
@@ -29,7 +29,7 @@ func NewJwtAuthenticator(
 }
 
 // Authenticate implements [vapi.AuthSchemer].
-func (j *JwtAuthenticator) Authenticate(ctx context.Context, request *http.Request) (vapi.Principal, error) {
+func (j *Authenticator) Authenticate(ctx context.Context, request *http.Request) (vapi.Principal, error) {
 	token, err := j.tokenExtractor.ReadArtifact(ctx, request)
 	if err != nil {
 		if errors.Is(err, vapi.ErrNotApplicable) {
@@ -47,4 +47,4 @@ func (j *JwtAuthenticator) Authenticate(ctx context.Context, request *http.Reque
 	return principal, nil
 }
 
-var _ vapi.Authenticator[*http.Request] = &JwtAuthenticator{}
+var _ vapi.Authenticator[*http.Request] = &Authenticator{}

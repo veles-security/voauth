@@ -10,12 +10,12 @@ import (
 	"github.com/veles-security/voauth/jwt"
 )
 
-func issueToken(t *testing.T) *jwt.JwtToken {
+func issueToken(t *testing.T) *jwt.Token {
 	keyRSA2048, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		t.Fatal(err)
 	}
-	issuer := jwt.NewJwtIssuer(jwt.WithIssuer("safe"), jwt.NewJwtSigner(keyRSA2048, sig.SigAlgRS256))
+	issuer := jwt.NewIssuer(jwt.WithIssuer("safe"), jwt.NewSigner(keyRSA2048, sig.SigAlgRS256))
 	issuedToken, err := issuer.Issue(context.Background())
 	if err != nil {
 		t.Fatal(err)
@@ -28,13 +28,13 @@ func TestJwtEncoder_Encode(t *testing.T) {
 	tests := []struct {
 		name string // description of this test case
 		// Named input parameters for target function.
-		token   *jwt.JwtToken
+		token   *jwt.Token
 		want    []byte
 		wantErr bool
 	}{
 		{
 			name:  "minimal",
-			token: &jwt.JwtToken{Header: map[string]string{"alg": "none"}, Claims: map[string]any{"sub": "me"}},
+			token: &jwt.Token{Header: map[string]string{"alg": "none"}, Claims: map[string]any{"sub": "me"}},
 			want:  []byte("eyJhbGciOiJub25lIn0.eyJzdWIiOiJtZSJ9."),
 		},
 		{

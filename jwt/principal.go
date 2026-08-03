@@ -10,12 +10,12 @@ import (
 	"github.com/veles-security/vapi/sub"
 )
 
-type JwtPrincipalExtractor struct {
+type PrincipalExtractor struct {
 	mappers []JwtPrincipalMapper
 }
 
-func NewJwtPrincipalExtractor(mappers ...JwtPrincipalMapper) *JwtPrincipalExtractor {
-	e := &JwtPrincipalExtractor{}
+func NewPrincipalExtractor(mappers ...JwtPrincipalMapper) *PrincipalExtractor {
+	e := &PrincipalExtractor{}
 	for _, mapper := range mappers {
 		e.mappers = append(e.mappers, mapper)
 	}
@@ -23,7 +23,7 @@ func NewJwtPrincipalExtractor(mappers ...JwtPrincipalMapper) *JwtPrincipalExtrac
 }
 
 // ExtractPrincipal implements [vapi.PrincipalSchemer].
-func (j *JwtPrincipalExtractor) ExtractPrincipal(ctx context.Context, token *JwtToken, mappers ...JwtPrincipalMapper) (vapi.Principal, error) {
+func (j *PrincipalExtractor) ExtractPrincipal(ctx context.Context, token *Token, mappers ...JwtPrincipalMapper) (vapi.Principal, error) {
 	issuer, ok := token.Claims["iss"].(string)
 	if !ok {
 		issuer = ""
@@ -55,12 +55,12 @@ func (j *JwtPrincipalExtractor) ExtractPrincipal(ctx context.Context, token *Jwt
 }
 
 type JwtPrincipalMapper interface {
-	Map(token *JwtToken, principal vapi.Principal) error
+	Map(token *Token, principal vapi.Principal) error
 }
 
-type JwtPrincipalMapperFunc func(token *JwtToken, principal vapi.Principal) error
+type JwtPrincipalMapperFunc func(token *Token, principal vapi.Principal) error
 
-func (f JwtPrincipalMapperFunc) Map(token *JwtToken, principal vapi.Principal) error {
+func (f JwtPrincipalMapperFunc) Map(token *Token, principal vapi.Principal) error {
 	return f(token, principal)
 }
 
@@ -71,7 +71,7 @@ type JwtStandardClaimsMapper struct {
 	AssuranceLevels map[string]int
 }
 
-func (m JwtStandardClaimsMapper) Map(token *JwtToken, principal vapi.Principal) error {
+func (m JwtStandardClaimsMapper) Map(token *Token, principal vapi.Principal) error {
 	p, ok := principal.(*sub.Principal)
 	if !ok {
 		return errors.New("voauth: standard claims mapper requires *velesapi.Principal")
@@ -140,7 +140,7 @@ type JwtAttributesMapper struct {
 	Claims []string
 }
 
-func (m JwtAttributesMapper) Map(token *JwtToken, principal vapi.Principal) error {
+func (m JwtAttributesMapper) Map(token *Token, principal vapi.Principal) error {
 	p, ok := principal.(*sub.Principal)
 	if !ok {
 		return errors.New("voauth: attributes mapper requires *velesapi.Principal")
@@ -159,7 +159,7 @@ func (m JwtAttributesMapper) Map(token *JwtToken, principal vapi.Principal) erro
 	return nil
 }
 
-var _ vapi.PrincipalExtractor[*JwtToken, JwtPrincipalMapper] = &JwtPrincipalExtractor{}
+var _ vapi.PrincipalExtractor[*Token, JwtPrincipalMapper] = &PrincipalExtractor{}
 var _ JwtPrincipalMapper = JwtPrincipalMapperFunc(nil)
 var _ JwtPrincipalMapper = JwtStandardClaimsMapper{}
 var _ JwtPrincipalMapper = JwtAttributesMapper{}

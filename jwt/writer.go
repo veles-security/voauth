@@ -7,14 +7,14 @@ import (
 	"github.com/veles-security/vapi"
 )
 
-type JwtWriter struct {
-	encoder vapi.Encoder[*JwtToken, JwtEncoderOption]
+type Writer struct {
+	encoder vapi.Encoder[*Token, EncoderOption]
 }
 
-type JwtWriterOption func(*JwtWriter)
+type WriterOption func(*Writer)
 
-func NewJwtInjector(options ...JwtWriterOption) *JwtWriter {
-	injector := &JwtWriter{}
+func NewJwtInjector(options ...WriterOption) *Writer {
+	injector := &Writer{}
 	for _, option := range options {
 		option(injector)
 	}
@@ -25,7 +25,7 @@ func NewJwtInjector(options ...JwtWriterOption) *JwtWriter {
 }
 
 // AddCredentials implements [velesapi.Writer].
-func (j *JwtWriter) WriteArtifact(ctx context.Context, request *http.Request, artifact *JwtToken, options ...JwtWriterOption) error {
+func (j *Writer) WriteArtifact(ctx context.Context, request *http.Request, artifact *Token, options ...WriterOption) error {
 	raw, err := j.encoder.Encode(ctx, artifact)
 	if err != nil {
 		return vapi.ErrMalformed
@@ -34,4 +34,4 @@ func (j *JwtWriter) WriteArtifact(ctx context.Context, request *http.Request, ar
 	return nil
 }
 
-var _ vapi.Writer[*http.Request, *JwtToken, JwtWriterOption] = &JwtWriter{}
+var _ vapi.Writer[*http.Request, *Token, WriterOption] = &Writer{}

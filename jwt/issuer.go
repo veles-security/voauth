@@ -11,19 +11,19 @@ import (
 	"github.com/veles-security/vapi"
 )
 
-type JwtIssuer struct {
+type Issuer struct {
 	options []JwtIssuerOption
 }
 
-func NewJwtIssuer(options ...JwtIssuerOption) *JwtIssuer {
-	issuer := &JwtIssuer{}
+func NewIssuer(options ...JwtIssuerOption) *Issuer {
+	issuer := &Issuer{}
 	issuer.options = options
 	return issuer
 }
 
 // Issue implements [vapi.IssueSchemer].
-func (j *JwtIssuer) Issue(ctx context.Context, options ...JwtIssuerOption) (*JwtToken, error) {
-	token := &JwtToken{
+func (j *Issuer) Issue(ctx context.Context, options ...JwtIssuerOption) (*Token, error) {
+	token := &Token{
 		iat:    time.Now(),
 		Header: map[string]string{},
 		Claims: make(Cliams),
@@ -58,11 +58,11 @@ func (j *JwtIssuer) Issue(ctx context.Context, options ...JwtIssuerOption) (*Jwt
 }
 
 // IssueForPrincipal implements [vapi.IssueForPrincipalSchemer].
-func (j *JwtIssuer) IssueForPrincipal(ctx context.Context, principal vapi.Principal) (*JwtToken, error) {
+func (j *Issuer) IssueForPrincipal(ctx context.Context, principal vapi.Principal) (*Token, error) {
 	return nil, nil
 }
 
-func (j *JwtIssuer) JTI(nbytes int) (string, error) {
+func (j *Issuer) JTI(nbytes int) (string, error) {
 	b := make([]byte, nbytes)
 	if _, err := rand.Read(b); err != nil {
 		return "", err
@@ -71,17 +71,17 @@ func (j *JwtIssuer) JTI(nbytes int) (string, error) {
 }
 
 type JwtIssuerOption interface {
-	ApplyIssuerOption(ctx context.Context, token *JwtToken) error
+	ApplyIssuerOption(ctx context.Context, token *Token) error
 }
 
-type JwtIssuerOptionFunc func(ctx context.Context, token *JwtToken) error
+type JwtIssuerOptionFunc func(ctx context.Context, token *Token) error
 
-func (f JwtIssuerOptionFunc) ApplyIssuerOption(ctx context.Context, token *JwtToken) error {
+func (f JwtIssuerOptionFunc) ApplyIssuerOption(ctx context.Context, token *Token) error {
 	return f(ctx, token)
 }
 
 func WithSubject(subject string) JwtIssuerOption {
-	return JwtIssuerOptionFunc(func(_ context.Context, token *JwtToken) error {
+	return JwtIssuerOptionFunc(func(_ context.Context, token *Token) error {
 		if token.Claims == nil {
 			token.Claims = make(map[string]any)
 		}
@@ -91,7 +91,7 @@ func WithSubject(subject string) JwtIssuerOption {
 }
 
 func WithIssuer(issuer string) JwtIssuerOption {
-	return JwtIssuerOptionFunc(func(_ context.Context, token *JwtToken) error {
+	return JwtIssuerOptionFunc(func(_ context.Context, token *Token) error {
 		if token.Claims == nil {
 			token.Claims = make(map[string]any)
 		}
@@ -101,7 +101,7 @@ func WithIssuer(issuer string) JwtIssuerOption {
 }
 
 func WithExp(exp time.Duration) JwtIssuerOption {
-	return JwtIssuerOptionFunc(func(_ context.Context, token *JwtToken) error {
+	return JwtIssuerOptionFunc(func(_ context.Context, token *Token) error {
 		if token.Claims == nil {
 			token.Claims = make(map[string]any)
 		}
@@ -111,7 +111,7 @@ func WithExp(exp time.Duration) JwtIssuerOption {
 }
 
 func WithClaims(cliams Cliams) JwtIssuerOption {
-	return JwtIssuerOptionFunc(func(_ context.Context, token *JwtToken) error {
+	return JwtIssuerOptionFunc(func(_ context.Context, token *Token) error {
 		if token.Claims == nil {
 			token.Claims = make(map[string]any)
 		}
@@ -121,7 +121,7 @@ func WithClaims(cliams Cliams) JwtIssuerOption {
 }
 
 func WithPrincipal(principal vapi.Principal) JwtIssuerOption {
-	return JwtIssuerOptionFunc(func(_ context.Context, token *JwtToken) error {
+	return JwtIssuerOptionFunc(func(_ context.Context, token *Token) error {
 		if principal == nil {
 			return vapi.NewErrorCategory(vapi.ErrPolicyRejected, errors.New("nil principal"))
 		}
@@ -136,6 +136,6 @@ func WithPrincipal(principal vapi.Principal) JwtIssuerOption {
 	})
 }
 
-var _ vapi.Issuer[JwtIssuerOption, *JwtToken] = &JwtIssuer{}
-var _ vapi.PrincipalIssuer[JwtIssuerOption, *JwtToken] = &JwtIssuer{}
+var _ vapi.Issuer[JwtIssuerOption, *Token] = &Issuer{}
+var _ vapi.PrincipalIssuer[JwtIssuerOption, *Token] = &Issuer{}
 var _ JwtIssuerOption = JwtIssuerOptionFunc(nil)

@@ -13,7 +13,7 @@ const (
 	RefreshTokenKind = "oauth2:refresh_token" // #nosec G101 -- token kind identifier, not a credential
 )
 
-type JwtToken struct {
+type Token struct {
 	iat       time.Time
 	Header    map[string]string
 	Claims    Cliams
@@ -21,32 +21,32 @@ type JwtToken struct {
 }
 
 // Kind implements [velesapi.Artifacter].
-func (j *JwtToken) Kind() string {
+func (j *Token) Kind() string {
 	return TokenKind
 }
 
-type IDToken struct{ JwtToken }
+type IDToken struct{ Token }
 
 // Kind implements [velesapi.Artifacter].
 func (i *IDToken) Kind() string {
 	return IDTokenKind
 }
 
-type AccessToken struct{ JwtToken }
+type AccessToken struct{ Token }
 
 // Kind implements [velesapi.Artifacter].
 func (a *AccessToken) Kind() string {
 	return AccessTokenKind
 }
 
-type RefreshToken struct{ JwtToken }
+type RefreshToken struct{ Token }
 
 // Kind implements [velesapi.Artifacter].
 func (r *RefreshToken) Kind() string {
 	return RefreshTokenKind
 }
 
-var _ velesapi.Artifact = &JwtToken{}
+var _ velesapi.Artifact = &Token{}
 var _ velesapi.Artifact = &IDToken{}
 var _ velesapi.Artifact = &AccessToken{}
 var _ velesapi.Artifact = &RefreshToken{}

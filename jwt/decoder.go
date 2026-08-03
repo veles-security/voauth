@@ -9,12 +9,12 @@ import (
 	"github.com/veles-security/vapi"
 )
 
-type JwtDecoder struct{}
+type Decoder struct{}
 
-type JwtDecoderOption func(*JwtDecoder)
+type DecoderOption func(*Decoder)
 
-func NewJwtDecoder(options ...JwtDecoderOption) *JwtDecoder {
-	decoder := &JwtDecoder{}
+func NewJwtDecoder(options ...DecoderOption) *Decoder {
+	decoder := &Decoder{}
 	for _, option := range options {
 		option(decoder)
 	}
@@ -22,28 +22,28 @@ func NewJwtDecoder(options ...JwtDecoderOption) *JwtDecoder {
 }
 
 // Decode implements [vapi.DecodeSchemer].
-func (d JwtDecoder) Decode(ctx context.Context, encoded []byte, options ...JwtDecoderOption) (*JwtToken, error) {
+func (d Decoder) Decode(ctx context.Context, encoded []byte, options ...DecoderOption) (*Token, error) {
 	headerEncoded, claimsEncoded, signatureEncoded, err := d.split(encoded)
 	if err != nil {
-		return &JwtToken{}, err
+		return &Token{}, err
 	}
 	header, err := d.decodeHeader(headerEncoded)
 	if err != nil {
-		return &JwtToken{}, err
+		return &Token{}, err
 	}
 	claims, err := d.decodeClaims(claimsEncoded)
 	if err != nil {
-		return &JwtToken{}, err
+		return &Token{}, err
 	}
 
-	return &JwtToken{
+	return &Token{
 		Header:    header,
 		Claims:    claims,
 		signature: signatureEncoded,
 	}, nil
 }
 
-func (d JwtDecoder) decodeClaims(claimsEncoded []byte) (map[string]any, error) {
+func (d Decoder) decodeClaims(claimsEncoded []byte) (map[string]any, error) {
 	decoded := make([]byte, base64.RawURLEncoding.DecodedLen(len(claimsEncoded)))
 	n, err := base64.RawURLEncoding.Decode(decoded, claimsEncoded)
 	if err != nil {
@@ -57,7 +57,7 @@ func (d JwtDecoder) decodeClaims(claimsEncoded []byte) (map[string]any, error) {
 	return claims, nil
 }
 
-func (d JwtDecoder) decodeHeader(headerEncoded []byte) (map[string]string, error) {
+func (d Decoder) decodeHeader(headerEncoded []byte) (map[string]string, error) {
 	decoded := make([]byte, base64.RawURLEncoding.DecodedLen(len(headerEncoded)))
 	n, err := base64.RawURLEncoding.Decode(decoded, headerEncoded)
 	if err != nil {
@@ -71,7 +71,7 @@ func (d JwtDecoder) decodeHeader(headerEncoded []byte) (map[string]string, error
 	return header, nil
 }
 
-func (d JwtDecoder) split(jwtBytes []byte) (header, payload, signature []byte, err error) {
+func (d Decoder) split(jwtBytes []byte) (header, payload, signature []byte, err error) {
 	firstDot := bytes.IndexByte(jwtBytes, '.')
 	if firstDot <= 0 {
 		return nil, nil, nil, vapi.ErrMalformed
@@ -86,4 +86,4 @@ func (d JwtDecoder) split(jwtBytes []byte) (header, payload, signature []byte, e
 	return jwtBytes[:firstDot], remainder[:secondDot], remainder[secondDot+1:], nil
 }
 
-var _ vapi.Decoder[*JwtToken, JwtDecoderOption] = &JwtDecoder{}
+var _ vapi.Decoder[*Token, DecoderOption] = &Decoder{}

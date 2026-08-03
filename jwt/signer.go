@@ -8,15 +8,15 @@ import (
 	"github.com/veles-security/vapi/sig"
 )
 
-type JwtSigner struct {
+type Signer struct {
 	kid     string
 	key     crypto.Signer
 	alg     sig.SigAlg
 	encoder vapi.Encoder[*Cliams, JwtClaimsEncoderOption]
 }
 
-func NewJwtSigner(key crypto.Signer, alg sig.SigAlg, options ...JwtSignerPolicer) *JwtSigner {
-	signer := &JwtSigner{
+func NewSigner(key crypto.Signer, alg sig.SigAlg, options ...JwtSignerPolicer) *Signer {
+	signer := &Signer{
 		key:     key,
 		alg:     alg,
 		encoder: &JwtClaimsEncoder{},
@@ -28,7 +28,7 @@ func NewJwtSigner(key crypto.Signer, alg sig.SigAlg, options ...JwtSignerPolicer
 }
 
 // ApplyIssuerOption implements [JwtIssuerOption].
-func (j *JwtSigner) ApplyIssuerOption(ctx context.Context, token *JwtToken) error {
+func (j *Signer) ApplyIssuerOption(ctx context.Context, token *Token) error {
 	signature, err := j.Sign(ctx, token)
 	if err != nil {
 		return err
@@ -46,7 +46,7 @@ func (j *JwtSigner) ApplyIssuerOption(ctx context.Context, token *JwtToken) erro
 }
 
 // Sign implements [vapi.SignerSchemer].
-func (j *JwtSigner) Sign(ctx context.Context, artifact *JwtToken, options ...JwtSignerPolicer) ([]byte, error) {
+func (j *Signer) Sign(ctx context.Context, artifact *Token, options ...JwtSignerPolicer) ([]byte, error) {
 	config := *j
 	for _, option := range options {
 		option(&config)
@@ -70,27 +70,27 @@ func (j *JwtSigner) Sign(ctx context.Context, artifact *JwtToken, options ...Jwt
 
 // ----------------------------------------------------------------------------
 
-type JwtSignerPolicer func(*JwtSigner)
+type JwtSignerPolicer func(*Signer)
 
 func WithKid(kid string) JwtSignerPolicer {
-	return func(j *JwtSigner) {
+	return func(j *Signer) {
 		j.kid = kid
 	}
 }
 
 func WithKey(key crypto.Signer) JwtSignerPolicer {
-	return func(j *JwtSigner) {
+	return func(j *Signer) {
 		j.key = key
 	}
 }
 
 func WithAlg(alg sig.SigAlg) JwtSignerPolicer {
-	return func(j *JwtSigner) {
+	return func(j *Signer) {
 		j.alg = alg
 	}
 }
 
 // ----------------------------------------------------------------------------
 
-var _ vapi.Signer[*JwtToken, JwtSignerPolicer] = &JwtSigner{}
-var _ JwtIssuerOption = &JwtSigner{}
+var _ vapi.Signer[*Token, JwtSignerPolicer] = &Signer{}
+var _ JwtIssuerOption = &Signer{}

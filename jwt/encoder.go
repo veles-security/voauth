@@ -8,12 +8,12 @@ import (
 	"github.com/veles-security/vapi"
 )
 
-type JwtEncoder struct{}
+type Encoder struct{}
 
-type JwtEncoderOption func(*JwtEncoder)
+type EncoderOption func(*Encoder)
 
-func NewJwtEncoder(options ...JwtEncoderOption) *JwtEncoder {
-	encoder := &JwtEncoder{}
+func NewJwtEncoder(options ...EncoderOption) *Encoder {
+	encoder := &Encoder{}
 	for _, option := range options {
 		option(encoder)
 	}
@@ -21,7 +21,7 @@ func NewJwtEncoder(options ...JwtEncoderOption) *JwtEncoder {
 }
 
 // Encode implements [vapi.EncodeSchemer].
-func (j *JwtEncoder) Encode(ctx context.Context, artifact *JwtToken, options ...JwtEncoderOption) ([]byte, error) {
+func (j *Encoder) Encode(ctx context.Context, artifact *Token, options ...EncoderOption) ([]byte, error) {
 	header, err := json.Marshal(artifact.Header)
 	if err != nil {
 		return nil, err
@@ -80,5 +80,5 @@ func (j *JwtClaimsEncoder) Encode(ctx context.Context, claims *Cliams, options .
 	return encoded, nil
 }
 
-var _ vapi.Encoder[*JwtToken, JwtEncoderOption] = &JwtEncoder{}
+var _ vapi.Encoder[*Token, EncoderOption] = &Encoder{}
 var _ vapi.Encoder[*Cliams, JwtClaimsEncoderOption] = &JwtClaimsEncoder{}
