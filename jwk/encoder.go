@@ -6,9 +6,9 @@ import (
 	"crypto/ed25519"
 	"crypto/rsa"
 	"encoding/base64"
-	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"math/big"
 
 	"github.com/veles-security/vapi"
 )
@@ -68,13 +68,11 @@ func (j *Encoder) encode(_ context.Context, artifact *Jwk, representation *JwkRe
 		representation.Kty = "RSA"
 		n := byteBuffer(base64.RawURLEncoding.EncodeToString(key.N.Bytes()))
 		representation.N = &n
-		var exponent [8]byte
-		binary.BigEndian.PutUint64(exponent[:], uint64(key.E))
-		start := 0
-		for start < len(exponent)-1 && exponent[start] == 0 {
-			start++
+		if key.E <= 0 {
+			return fmt.Errorf("invalid RSA public exponent %d", key.E)
 		}
-		e := byteBuffer(base64.RawURLEncoding.EncodeToString(exponent[start:]))
+		exponent := big.NewInt(int64(key.E)).Bytes()
+		e := byteBuffer(base64.RawURLEncoding.EncodeToString(exponent))
 		representation.E = &e
 	case *ecdsa.PublicKey:
 		representation.Kty = "EC"

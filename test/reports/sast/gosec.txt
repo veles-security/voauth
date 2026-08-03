@@ -1,17 +1,10 @@
 Results:
 
 
-[/workspace/jwk/encoder.go:72] - G115 (CWE-190): integer overflow conversion int -> uint64 (Confidence: MEDIUM, Severity: HIGH)
-    71: 		var exponent [8]byte
-  > 72: 		binary.BigEndian.PutUint64(exponent[:], uint64(key.E))
-    73: 		start := 0
-
-Autofix: 
-
 Summary:
   Gosec  : dev
   Files  : 22
-  Lines  : 1670
+  Lines  : 1668
   Nosec  : 5
-  Issues : 1
+  Issues : 0
 
