@@ -39,7 +39,9 @@ func (j *Decoder) Decode(ctx context.Context, payload []byte, options ...Decoder
 	if err != nil {
 		return nil, err
 	}
-	result := &Jwk{Kid: representation.Kid, Alg: alg}
+	result := &Jwk{}
+	result.Kid = representation.Kid
+	result.Alg = alg
 
 	switch representation.Kty {
 	case "oct":

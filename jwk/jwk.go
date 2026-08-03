@@ -10,9 +10,17 @@ import (
 const JwkKind = "oauth2:jwk"
 
 type Jwk struct {
-	Kid string
-	Alg sig.SigAlg
-	Key crypto.PublicKey
+	sig.SignVerifier
+}
+
+func NewJwk(alg sig.SigAlg, key crypto.PublicKey, kid string) *Jwk {
+	return &Jwk{
+		sig.SignVerifier{
+			Kid: kid,
+			Alg: alg,
+			Key: key,
+		},
+	}
 }
 
 // Kind implements [vapi.Artifacter].

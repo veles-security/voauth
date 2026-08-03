@@ -30,10 +30,8 @@ func TestEncoderOption_DecoratesEncode(t *testing.T) {
 	})
 
 	encoder := jwk.NewEncoder(option)
-	_, err := encoder.Encode(context.Background(), &jwk.Jwk{
-		Alg: sig.SigAlgEd25519,
-		Key: make(ed25519.PublicKey, ed25519.PublicKeySize),
-	})
+
+	_, err := encoder.Encode(context.Background(), jwk.NewJwk(sig.SigAlgEd25519, make(ed25519.PublicKey, ed25519.PublicKeySize), ""))
 	if err != nil {
 		t.Fatalf("Encode() failed: %v", err)
 	}
@@ -58,20 +56,20 @@ func TestEncoder_ThumbprintKid(t *testing.T) {
 		{
 			name:     "constructor option calculates RFC 7638 thumbprint",
 			encoder:  jwk.NewEncoder(jwk.WithThumbprintKid()),
-			artifact: &jwk.Jwk{Alg: sig.SigAlgEd25519, Key: publicKey},
+			artifact: jwk.NewJwk(sig.SigAlgEd25519, publicKey, ""),
 			wantKid:  "P7IdLIpiTZiFaIoOSqbX3JrSyps3hvZ4Y2SieP96XIY",
 		},
 		{
 			name:     "encode option calculates thumbprint",
 			encoder:  jwk.NewEncoder(),
-			artifact: &jwk.Jwk{Alg: sig.SigAlgEd25519, Key: publicKey},
+			artifact: jwk.NewJwk(sig.SigAlgEd25519, publicKey, ""),
 			options:  []jwk.EncoderOption{jwk.WithThumbprintKid()},
 			wantKid:  "P7IdLIpiTZiFaIoOSqbX3JrSyps3hvZ4Y2SieP96XIY",
 		},
 		{
 			name:     "explicit kid is preserved",
 			encoder:  jwk.NewEncoder(jwk.WithThumbprintKid()),
-			artifact: &jwk.Jwk{Kid: "explicit", Alg: sig.SigAlgEd25519, Key: publicKey},
+			artifact: jwk.NewJwk(sig.SigAlgEd25519, publicKey, "explicit"),
 			wantKid:  "explicit",
 		},
 	}
@@ -107,7 +105,7 @@ func TestEncoder_Encode(t *testing.T) {
 	}{
 		{
 			name:     "simple",
-			artifact: &jwk.Jwk{Kid: "x", Alg: sig.SigAlgRS256, Key: keyRSA2048.Public()},
+			artifact: jwk.NewJwk(sig.SigAlgRS256, keyRSA2048.Public(), "x"),
 		},
 	}
 	for _, tt := range tests {
