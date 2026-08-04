@@ -4,7 +4,7 @@ import (
 	"time"
 
 	velesapi "github.com/veles-security/vapi"
-	"github.com/veles-security/voauth"
+	"github.com/veles-security/voauth/token"
 )
 
 const (
@@ -23,7 +23,7 @@ type Token struct {
 	signature []byte
 }
 
-// TokenType implements [voauth.Token].
+// TokenType implements [voauth.AnyToken].
 func (j *Token) TokenType() string {
 	return TokenJwtType
 }
@@ -58,4 +58,4 @@ var _ velesapi.Artifact = &Token{}
 var _ velesapi.Artifact = &IDToken{}
 var _ velesapi.Artifact = &AccessToken{}
 var _ velesapi.Artifact = &RefreshToken{}
-var _ voauth.Token = &Token{}
+var _ token.AnyToken = &Token{}

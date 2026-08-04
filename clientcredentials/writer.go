@@ -8,10 +8,10 @@ import (
 	"strings"
 
 	"github.com/veles-security/vapi"
-	"github.com/veles-security/voauth"
+	"github.com/veles-security/voauth/token"
 )
 
-type Writer[T voauth.Token, TO any] struct {
+type Writer[T token.AnyToken, TO any] struct {
 	tokenEncoder vapi.Encoder[T, TO]
 }
 
@@ -47,4 +47,4 @@ func (w *Writer[T, TO]) WriteArtifact(ctx context.Context, carrier *http.Request
 type WriterOption interface {
 }
 
-var _ vapi.Writer[*http.Request, *ClientCredentials, WriterOption] = &Writer[voauth.Token, any]{}
+var _ vapi.Writer[*http.Request, *ClientCredentials, WriterOption] = &Writer[token.AnyToken, any]{}

@@ -2,7 +2,7 @@ package clientcredentials
 
 import (
 	"github.com/veles-security/vapi"
-	"github.com/veles-security/voauth"
+	"github.com/veles-security/voauth/token"
 )
 
 const ClientCredentialsKind = "oauth2:client_credentials"
@@ -11,7 +11,7 @@ type ClientCredentials struct {
 	ClientId            string
 	ClientSecret        string
 	ClientAssertionType string
-	ClientAssertion     voauth.Token
+	ClientAssertion     token.AnyToken
 }
 
 // Kind implements [vapi.Artifact].
