@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 
 	"github.com/veles-security/vapi"
 	"github.com/veles-security/voauth/token"
@@ -12,25 +13,58 @@ import (
 
 type Encoder struct{}
 
-type EncoderOption func(*Encoder)
+type EncoderConfigOption func(*Encoder) error
 
-func NewJwtEncoder(options ...EncoderOption) *Encoder {
+type EncodeFunc func(ctx context.Context, artifact *Token) ([]byte, error)
+
+type EncoderOption func(next EncodeFunc) EncodeFunc
+
+func NewEncoder(configOptions ...EncoderConfigOption) (*Encoder, error) {
 	encoder := &Encoder{}
-	for _, option := range options {
-		option(encoder)
+	for _, option := range configOptions {
+		if option == nil {
+			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, errors.New("nil encoder config option"))
+		}
+		if err := option(encoder); err != nil {
+			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, err)
+		}
 	}
-	return encoder
+	return encoder, nil
 }
 
 // Encode implements [vapi.Encoder].
-func (j *Encoder) Encode(ctx context.Context, artifact *Token, options ...EncoderOption) ([]byte, error) {
+func (e *Encoder) Encode(ctx context.Context, artifact *Token, options ...EncoderOption) ([]byte, error) {
+	if e == nil {
+		return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, errors.New("cannot encode JWT with nil encoder"))
+	}
+	if artifact == nil {
+		return nil, vapi.NewErrorCategory(vapi.ErrMalformed, errors.New("cannot encode nil JWT"))
+	}
+
+	next := e.encode
+	for index := len(options) - 1; index >= 0; index-- {
+		option := options[index]
+		if option == nil {
+			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, fmt.Errorf("nil encoder option at index %d", index))
+		}
+		wrapped := option(next)
+		if wrapped == nil {
+			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, fmt.Errorf("encoder option at index %d returned nil EncodeFunc", index))
+		}
+		next = wrapped
+	}
+
+	return next(ctx, artifact)
+}
+
+func (e *Encoder) encode(_ context.Context, artifact *Token) ([]byte, error) {
 	header, err := json.Marshal(artifact.Header)
 	if err != nil {
-		return nil, err
+		return nil, vapi.NewErrorCategory(vapi.ErrMalformed, fmt.Errorf("encode JWT header: %w", err))
 	}
 	claims, err := json.Marshal(artifact.Claims)
 	if err != nil {
-		return nil, err
+		return nil, vapi.NewErrorCategory(vapi.ErrMalformed, fmt.Errorf("encode JWT claims: %w", err))
 	}
 
 	headerLen := base64.RawURLEncoding.EncodedLen(len(header))
@@ -57,12 +91,12 @@ func (j *Encoder) Encode(ctx context.Context, artifact *Token, options ...Encode
 }
 
 // implements [token.AnyTokenEncoder].
-func (j *Encoder) EncodeAnyToken(ctx context.Context, artifact token.AnyToken) ([]byte, error) {
+func (e *Encoder) EncodeAnyToken(ctx context.Context, artifact token.AnyToken) ([]byte, error) {
 	jwtArtifact, ok := artifact.(*Token)
 	if !ok {
 		return nil, vapi.NewErrorCategory(vapi.ErrNotApplicable, errors.New("not a JWT token"))
 	}
-	return j.Encode(ctx, jwtArtifact)
+	return e.Encode(ctx, jwtArtifact)
 }
 
 // ----------------------------------------------------------------------------

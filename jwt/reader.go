@@ -31,7 +31,11 @@ func NewReader(configOptions ...ReaderConfigOption) (*Reader, error) {
 		}
 	}
 	if reader.decoder == nil {
-		reader.decoder = NewJwtDecoder()
+		decoder, err := NewDecoder()
+		if err != nil {
+			return nil, err
+		}
+		reader.decoder = decoder
 	}
 	return reader, nil
 }

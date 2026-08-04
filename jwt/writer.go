@@ -30,7 +30,11 @@ func NewWriter(configOptions ...WriterConfigOption) (*Writer, error) {
 		}
 	}
 	if writer.encoder == nil {
-		writer.encoder = NewJwtEncoder()
+		encoder, err := NewEncoder()
+		if err != nil {
+			return nil, err
+		}
+		writer.encoder = encoder
 	}
 	return writer, nil
 }
