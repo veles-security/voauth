@@ -3,6 +3,7 @@ package jwks
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/veles-security/vapi"
@@ -13,36 +14,77 @@ type Encoder struct {
 	jwkEncoder vapi.Encoder[*jwk.Jwk, jwk.EncoderOption]
 }
 
-type EncoderOption func(*Encoder)
+type EncoderConfigOption func(*Encoder) error
 
-func NewEncoder(options ...EncoderOption) *Encoder {
+type EncodeFunc func(ctx context.Context, artifact *Jwks) ([]byte, error)
+
+type EncoderOption func(next EncodeFunc) EncodeFunc
+
+func NewEncoder(configOptions ...EncoderConfigOption) (*Encoder, error) {
 	encoder := &Encoder{}
-	encoder.jwkEncoder = &jwk.Encoder{}
-	for _, option := range options {
-		option(encoder)
+	for _, option := range configOptions {
+		if option == nil {
+			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, errors.New("nil encoder config option"))
+		}
+		if err := option(encoder); err != nil {
+			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, err)
+		}
 	}
-	return encoder
+	if encoder.jwkEncoder == nil {
+		encoder.jwkEncoder = &jwk.Encoder{}
+	}
+	return encoder, nil
 }
 
 // Encode implements [vapi.Encoder].
-func (j *Encoder) Encode(ctx context.Context, artifact *Jwks, options ...EncoderOption) ([]byte, error) {
-	if artifact == nil || artifact.Keys == nil {
-		return nil, fmt.Errorf("cannot encode nil JWK")
+func (e *Encoder) Encode(ctx context.Context, artifact *Jwks, options ...EncoderOption) ([]byte, error) {
+	if e == nil || e.jwkEncoder == nil {
+		return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, errors.New("cannot encode JWKS with nil JWK encoder"))
+	}
+	if artifact == nil {
+		return nil, vapi.NewErrorCategory(vapi.ErrMalformed, errors.New("cannot encode nil JWKS"))
+	}
+	if artifact.Keys == nil {
+		return nil, vapi.NewErrorCategory(vapi.ErrMalformed, errors.New("cannot encode JWKS with nil Keys"))
 	}
 	if len(artifact.Keys) == 0 {
-		return nil, fmt.Errorf("cannot encode empty JWK set")
+		return nil, vapi.NewErrorCategory(vapi.ErrMalformed, errors.New("cannot encode empty JWK set"))
 	}
+
+	next := e.encode
+	for index := len(options) - 1; index >= 0; index-- {
+		option := options[index]
+		if option == nil {
+			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, fmt.Errorf("nil encoder option at index %d", index))
+		}
+		wrapped := option(next)
+		if wrapped == nil {
+			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, fmt.Errorf("encoder option at index %d returned nil EncodeFunc", index))
+		}
+		next = wrapped
+	}
+	return next(ctx, artifact)
+}
+
+func (e *Encoder) encode(ctx context.Context, artifact *Jwks) ([]byte, error) {
 	representation := JwksRepresentation{Keys: make([]jwk.JwkRepresentation, len(artifact.Keys))}
 	for i := range artifact.Keys {
-		encoded, err := j.jwkEncoder.Encode(ctx, &artifact.Keys[i])
+		encoded, err := e.jwkEncoder.Encode(ctx, &artifact.Keys[i])
 		if err != nil {
-			return nil, err
+			return nil, vapi.NewErrorCategory(vapi.ErrMalformed, fmt.Errorf("encode JWK at index %d: %w", i, err))
+		}
+		if encoded == nil {
+			return nil, vapi.NewErrorCategory(vapi.ErrMalformed, fmt.Errorf("encode JWK at index %d returned nil payload", i))
 		}
 		if err := json.Unmarshal(encoded, &representation.Keys[i]); err != nil {
-			return nil, err
+			return nil, vapi.NewErrorCategory(vapi.ErrMalformed, fmt.Errorf("decode JWK representation at index %d: %w", i, err))
 		}
 	}
-	return json.Marshal(representation)
+	payload, err := json.Marshal(representation)
+	if err != nil {
+		return nil, vapi.NewErrorCategory(vapi.ErrMalformed, fmt.Errorf("encode JWKS representation: %w", err))
+	}
+	return payload, nil
 }
 
 var _ vapi.Encoder[*Jwks, EncoderOption] = &Encoder{}

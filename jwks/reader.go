@@ -2,6 +2,8 @@ package jwks
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"io"
 	"net/http"
 
@@ -12,28 +14,71 @@ type Reader struct {
 	decoder vapi.Decoder[*Jwks, DecoderOption]
 }
 
-type ReaderOption interface {
-	Configure(*Reader)
-}
+type ReaderConfigOption func(*Reader) error
 
-func NewReader(options ...ReaderOption) *Reader {
+type ReadFunc func(ctx context.Context, carrier http.Response) (*Jwks, error)
+
+type ReaderOption func(next ReadFunc) ReadFunc
+
+func NewReader(configOptions ...ReaderConfigOption) (*Reader, error) {
 	reader := &Reader{}
-	if len(options) == 0 {
-		reader.decoder = NewDecoder()
+	for _, option := range configOptions {
+		if option == nil {
+			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, errors.New("nil reader config option"))
+		}
+		if err := option(reader); err != nil {
+			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, err)
+		}
 	}
-	for _, option := range options {
-		option.Configure(reader)
+	if reader.decoder == nil {
+		decoder, err := NewDecoder()
+		if err != nil {
+			return nil, err
+		}
+		reader.decoder = decoder
 	}
-	return reader
+	return reader, nil
 }
 
 // ReadArtifact implements [vapi.Reader].
 func (r *Reader) ReadArtifact(ctx context.Context, carrier http.Response, options ...ReaderOption) (*Jwks, error) {
+	if r == nil || r.decoder == nil {
+		return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, errors.New("cannot read JWKS response with nil JWKS decoder"))
+	}
+	if carrier.Body == nil {
+		return nil, vapi.NewErrorCategory(vapi.ErrMalformed, errors.New("cannot read JWKS response with nil Body"))
+	}
+
+	next := r.readArtifact
+	for index := len(options) - 1; index >= 0; index-- {
+		option := options[index]
+		if option == nil {
+			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, fmt.Errorf("nil reader option at index %d", index))
+		}
+		wrapped := option(next)
+		if wrapped == nil {
+			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, fmt.Errorf("reader option at index %d returned nil ReadFunc", index))
+		}
+		next = wrapped
+	}
+
+	return next(ctx, carrier)
+}
+
+func (r *Reader) readArtifact(ctx context.Context, carrier http.Response) (*Jwks, error) {
 	payload, err := io.ReadAll(carrier.Body)
 	if err != nil {
-		return nil, err
+		return nil, vapi.NewErrorCategory(vapi.ErrMalformed, fmt.Errorf("read JWKS response: %w", err))
 	}
-	return r.decoder.Decode(ctx, payload)
+
+	artifact, err := r.decoder.Decode(ctx, payload)
+	if err != nil {
+		return nil, vapi.NewErrorCategory(vapi.ErrMalformed, fmt.Errorf("decode JWKS: %w", err))
+	}
+	if artifact == nil {
+		return nil, vapi.NewErrorCategory(vapi.ErrMalformed, errors.New("decode JWKS returned nil artifact"))
+	}
+	return artifact, nil
 }
 
 var _ vapi.Reader[http.Response, *Jwks, ReaderOption] = &Reader{}
