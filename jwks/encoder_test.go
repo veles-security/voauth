@@ -39,9 +39,10 @@ func TestEncoder_Encode(t *testing.T) {
 		}
 	}
 	tests := []struct {
-		name     string
-		artifact *jwks.Jwks
-		assert   func(t *testing.T, artifact *jwks.Jwks, got []byte, err error)
+		name          string
+		configOptions []jwks.EncoderConfigOption
+		artifact      *jwks.Jwks
+		assert        func(t *testing.T, artifact *jwks.Jwks, got []byte, err error)
 	}{
 		{
 			name: "RSA key with RS256",
@@ -51,6 +52,11 @@ func TestEncoder_Encode(t *testing.T) {
 				"rsa-key",
 			)}},
 			assert: assertDecoded,
+		},
+		{
+			name:     "RSA key with RS256 and nil artifacr",
+			artifact: nil,
+			assert:   assertMalformed,
 		},
 		{
 			name: "RSA key with malformed RS256",
@@ -110,12 +116,55 @@ func TestEncoder_Encode(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			encoded, err := jwks.NewEncoder()
+			encoded, err := jwks.NewEncoder(tt.configOptions...)
 			if err != nil {
 				t.Fatalf("NewEncoder() failed: %v", err)
 			}
 			got, err := encoded.Encode(context.Background(), tt.artifact)
 			tt.assert(t, tt.artifact, got, err)
+		})
+	}
+}
+
+func TestNewEncoder(t *testing.T) {
+	assertEncoderCreated := func(t *testing.T, got *jwks.Encoder, err error) {
+		if got == nil {
+			t.Fatalf("NewEncoder() failed: got nil Encoder")
+		}
+		if err != nil {
+			t.Fatalf("NewEncoder() failed: %#v", err)
+		}
+	}
+	assertMisconfigured := func(t *testing.T, got *jwks.Encoder, err error) {
+		if err == nil {
+			t.Fatalf("NewEncoder() failed: want %#v got nil", vapi.ErrMisconfigured)
+		}
+		if !errors.Is(err, vapi.ErrMisconfigured) {
+			t.Fatalf("NewEncoder() failed: want %#v got %#v", vapi.ErrMisconfigured, err)
+		}
+	}
+
+	tests := []struct {
+		name          string // description of this test case
+		configOptions []jwks.EncoderConfigOption
+		assert        func(t *testing.T, got *jwks.Encoder, err error)
+	}{
+		{
+			name:   "default",
+			assert: assertEncoderCreated,
+		},
+		{
+			name: "nil option",
+			configOptions: []jwks.EncoderConfigOption{
+				nil,
+			},
+			assert: assertMisconfigured,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, gotErr := jwks.NewEncoder(tt.configOptions...)
+			tt.assert(t, got, gotErr)
 		})
 	}
 }
