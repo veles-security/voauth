@@ -7,7 +7,7 @@ import (
 )
 
 type Writer[RT, AT, CT token.AnyToken, RTO, ATO, CTO any] struct {
-	tokenEncoder             *token.Encoder
+	tokenEncoder             token.AnyTokenEncoder
 	assertionTokenEncoder    vapi.Encoder[AT, ATO]
-	clientCredentialsEncoder clientcredentials.Writer[CT, CTO]
+	clientCredentialsEncoder *clientcredentials.Writer
 }

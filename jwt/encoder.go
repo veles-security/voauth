@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 
 	"github.com/veles-security/vapi"
+	"github.com/veles-security/voauth/token"
 )
 
 type Encoder struct{}
@@ -20,7 +22,7 @@ func NewJwtEncoder(options ...EncoderOption) *Encoder {
 	return encoder
 }
 
-// Encode implements [vapi.EncodeSchemer].
+// Encode implements [vapi.Encoder].
 func (j *Encoder) Encode(ctx context.Context, artifact *Token, options ...EncoderOption) ([]byte, error) {
 	header, err := json.Marshal(artifact.Header)
 	if err != nil {
@@ -54,6 +56,15 @@ func (j *Encoder) Encode(ctx context.Context, artifact *Token, options ...Encode
 	return encoded, nil
 }
 
+// implements [token.AnyTokenEncoder].
+func (j *Encoder) EncodeAnyToken(ctx context.Context, artifact token.AnyToken) ([]byte, error) {
+	jwtArtifact, ok := artifact.(*Token)
+	if !ok {
+		return nil, vapi.NewErrorCategory(vapi.ErrNotApplicable, errors.New("not a JWT token"))
+	}
+	return j.Encode(ctx, jwtArtifact)
+}
+
 // ----------------------------------------------------------------------------
 
 type JwtClaimsEncoder struct{}
@@ -68,7 +79,7 @@ func NewJwtClaimsEncoder(options ...JwtClaimsEncoderOption) *JwtClaimsEncoder {
 	return encoder
 }
 
-// Encode implements [vapi.EncodeSchemer].
+// Encode implements [vapi.Encoder].
 func (j *JwtClaimsEncoder) Encode(ctx context.Context, claims *Cliams, options ...JwtClaimsEncoderOption) ([]byte, error) {
 	claimsJson, err := json.Marshal(claims)
 	if err != nil {
@@ -82,3 +93,4 @@ func (j *JwtClaimsEncoder) Encode(ctx context.Context, claims *Cliams, options .
 
 var _ vapi.Encoder[*Token, EncoderOption] = &Encoder{}
 var _ vapi.Encoder[*Cliams, JwtClaimsEncoderOption] = &JwtClaimsEncoder{}
+var _ token.AnyTokenEncoder = &Encoder{}
