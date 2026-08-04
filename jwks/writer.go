@@ -37,7 +37,13 @@ func NewWriter(configOptions ...WriterConfigOption) (*Writer, error) {
 
 func (w *Writer) WriteArtifact(ctx context.Context, carrierWriter http.ResponseWriter, artifact *Jwks, options ...WriterOption) error {
 	if w.encoder == nil {
-		return fmt.Errorf("cannot write JWKS response with nil JWKS encoder")
+		return vapi.NewErrorCategory(vapi.ErrMisconfigured, fmt.Errorf("cannot write JWKS response with nil JWKS encoder"))
+	}
+	if artifact.Keys == nil {
+		return vapi.NewErrorCategory(vapi.ErrMalformed, fmt.Errorf("cannot write JWKS response with nil Keys"))
+	}
+	if len(artifact.Keys) == 0 {
+		return vapi.NewErrorCategory(vapi.ErrMalformed, fmt.Errorf("cannot write JWKS response with no Keys"))
 	}
 
 	next := w.writeArtifact
@@ -62,7 +68,7 @@ func (w *Writer) WriteArtifact(ctx context.Context, carrierWriter http.ResponseW
 func (w *Writer) writeArtifact(ctx context.Context, carrierWriter http.ResponseWriter, artifact *Jwks) error {
 	payload, err := w.encoder.Encode(ctx, artifact)
 	if err != nil {
-		return fmt.Errorf("encode JWKS: %w", err)
+		return vapi.NewErrorCategory(vapi.ErrMalformed, fmt.Errorf("encode JWKS: %w", err))
 	}
 
 	response := &http.Response{
@@ -78,7 +84,7 @@ func (w *Writer) writeArtifact(ctx context.Context, carrierWriter http.ResponseW
 	// payload is JSON produced by the trusted JWKS encoder, not HTML.
 	_, err = carrierWriter.Write(payload) // nosemgrep: go.lang.security.audit.xss.no-direct-write-to-responsewriter.no-direct-write-to-responsewriter
 	if err != nil {
-		return fmt.Errorf("write JWKS response: %w", err)
+		return vapi.NewErrorCategory(vapi.ErrMalformed, fmt.Errorf("write JWKS response: %w", err))
 	}
 
 	return nil
