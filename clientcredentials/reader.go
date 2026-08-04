@@ -1,0 +1,140 @@
+package clientcredentials
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"net/http"
+	"net/url"
+
+	"github.com/veles-security/vapi"
+	"github.com/veles-security/voauth/token"
+)
+
+type Reader struct {
+	tokenDecoder token.AnyTokenDecoder
+}
+
+type ReaderConfigOption func(*Reader) error
+
+type ReadFunc func(ctx context.Context, carrier *http.Request) (*ClientCredentials, error)
+
+type ReaderOption func(next ReadFunc) ReadFunc
+
+func NewReader(configOptions ...ReaderConfigOption) (*Reader, error) {
+	reader := &Reader{}
+	for _, option := range configOptions {
+		if option == nil {
+			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, errors.New("nil reader config option"))
+		}
+		if err := option(reader); err != nil {
+			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, err)
+		}
+	}
+	return reader, nil
+}
+
+// WithTokenDecoder configures the decoder used for client assertions.
+func WithTokenDecoder(decoder token.AnyTokenDecoder) ReaderConfigOption {
+	return func(reader *Reader) error {
+		if decoder == nil {
+			return errors.New("nil token decoder")
+		}
+		reader.tokenDecoder = decoder
+		return nil
+	}
+}
+
+// ReadArtifact implements [vapi.Reader].
+func (r *Reader) ReadArtifact(ctx context.Context, carrier *http.Request, options ...ReaderOption) (*ClientCredentials, error) {
+	if r == nil {
+		return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, errors.New("cannot read client credentials with nil reader"))
+	}
+	if carrier == nil {
+		return nil, vapi.NewErrorCategory(vapi.ErrMalformed, errors.New("cannot read client credentials from nil request"))
+	}
+
+	next := r.readArtifact
+	for index := len(options) - 1; index >= 0; index-- {
+		if options[index] == nil {
+			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, fmt.Errorf("nil reader option at index %d", index))
+		}
+		wrapped := options[index](next)
+		if wrapped == nil {
+			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, fmt.Errorf("reader option at index %d returned nil ReadFunc", index))
+		}
+		next = wrapped
+	}
+	return next(ctx, carrier)
+}
+
+func (r *Reader) readArtifact(ctx context.Context, carrier *http.Request) (*ClientCredentials, error) {
+	method, err := r.clientAuthMethod(carrier)
+	if err != nil {
+		return nil, err
+	}
+
+	credentials := &ClientCredentials{}
+	switch method {
+	case "client_secret_basic":
+		clientID, clientSecret, _ := carrier.BasicAuth()
+		credentials.ClientId, err = url.QueryUnescape(clientID)
+		if err == nil {
+			credentials.ClientSecret, err = url.QueryUnescape(clientSecret)
+		}
+		if err != nil {
+			return nil, vapi.NewErrorCategory(vapi.ErrMalformed, fmt.Errorf("decode basic client credentials: %w", err))
+		}
+	case "client_secret_post":
+		credentials.ClientId = carrier.PostForm.Get("client_id")
+		credentials.ClientSecret = carrier.PostForm.Get("client_secret")
+	default: // JWT client assertion methods share the same wire representation.
+		if r.tokenDecoder == nil {
+			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, errors.New("cannot read client assertion with nil token decoder"))
+		}
+		credentials.ClientId = carrier.PostForm.Get("client_id")
+		credentials.ClientAssertionType = carrier.PostForm.Get("client_assertion_type")
+		credentials.ClientAssertion, err = r.tokenDecoder.DecodeAnyToken(ctx, []byte(carrier.PostForm.Get("client_assertion")))
+		if err != nil {
+			return nil, vapi.NewErrorCategory(vapi.ErrMalformed, fmt.Errorf("decode client assertion: %w", err))
+		}
+		if credentials.ClientAssertion == nil {
+			return nil, vapi.NewErrorCategory(vapi.ErrMalformed, errors.New("decode client assertion returned nil artifact"))
+		}
+	}
+	return credentials, nil
+}
+
+func (r *Reader) clientAuthMethod(carrier *http.Request) (string, error) {
+	_, _, basic := carrier.BasicAuth()
+	if err := carrier.ParseForm(); err != nil {
+		return "", vapi.NewErrorCategory(vapi.ErrMalformed, fmt.Errorf("parse client credentials form: %w", err))
+	}
+	secretPost := carrier.PostForm.Get("client_secret") != ""
+	assertion := carrier.PostForm.Get("client_assertion") != ""
+	methods := 0
+	if basic {
+		methods++
+	}
+	if secretPost {
+		methods++
+	}
+	if assertion {
+		methods++
+	}
+	if methods == 0 {
+		return "", vapi.ErrNotApplicable
+	}
+	if methods != 1 {
+		return "", vapi.NewErrorCategory(vapi.ErrUnauthenticated, errors.New("multiple client authentication methods"))
+	}
+	if basic {
+		return "client_secret_basic", nil
+	}
+	if secretPost {
+		return "client_secret_post", nil
+	}
+	return "private_key_jwt", nil
+}
+
+var _ vapi.Reader[*http.Request, *ClientCredentials, ReaderOption] = &Reader{}
