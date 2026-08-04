@@ -5,7 +5,7 @@ import (
 	"github.com/veles-security/voauth/token"
 )
 
-const ClientCredentialsKind = "oauth2:client_credentials"
+const ClientCredentialsKind = "oauth2:client_credentials" // #nosec G101 -- client credentials kind identifier, not a credential
 
 type ClientCredentials struct {
 	ClientId            string

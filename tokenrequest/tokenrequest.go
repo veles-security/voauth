@@ -6,7 +6,7 @@ import (
 	"github.com/veles-security/voauth/token"
 )
 
-const TokenRequestKind = "oauth2:token_request"
+const TokenRequestKind = "oauth2:token_request" // #nosec G101 -- token request kind identifier, not a credential
 
 type TokenRequest struct {
 	// GrantType selects the OAuth 2.0 grant being requested. It is used by all grant types.
