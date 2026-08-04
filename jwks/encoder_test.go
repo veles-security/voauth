@@ -68,6 +68,26 @@ func TestEncoder_Encode(t *testing.T) {
 			assert: assertMalformed,
 		},
 		{
+			name:     "RSA key with nil Keys",
+			artifact: &jwks.Jwks{Keys: nil},
+			assert:   assertMalformed,
+		},
+		{
+			name: "nil Jwk Key",
+			artifact: &jwks.Jwks{
+				Keys: []jwk.Jwk{
+					{
+						SignVerifier: sig.SignVerifier{
+							Alg: sig.SigAlgRS256,
+							Key: nil,
+							Kid: "rsa-key",
+						},
+					},
+				},
+			},
+			assert: assertMalformed,
+		},
+		{
 			name: "RSA key with RS384",
 			artifact: &jwks.Jwks{Keys: []jwk.Jwk{*jwk.NewJwk(
 				sig.SigAlgRS384,
