@@ -8,6 +8,16 @@ import (
 
 const TokenRequestKind = "oauth2:token_request" // #nosec G101 -- token request kind identifier, not a credential
 
+const (
+	AuthorizationCodeGrantType = "authorization_code"
+	PasswordGrantType          = "password"
+	ClientCredentialsGrantType = "client_credentials"
+	RefreshTokenGrantType      = "refresh_token"
+	DeviceCodeGrantType        = "urn:ietf:params:oauth:grant-type:device_code"
+	JwtBearerGrantType         = "urn:ietf:params:oauth:grant-type:jwt-bearer"
+	Saml2BearerGrantType       = "urn:ietf:params:oauth:grant-type:saml2-bearer"
+)
+
 type TokenRequest struct {
 	// GrantType selects the OAuth 2.0 grant being requested. It is used by all grant types.
 	GrantType string
