@@ -15,9 +15,9 @@ import (
 )
 
 type Writer struct {
-	tokenEncoder             token.AnyTokenEncoder
-	assertionTokenEncoder    token.AnyTokenEncoder
-	clientCredentialsEncoder *clientcredentials.Writer
+	tokenEncoder            token.AnyTokenEncoder
+	assertionTokenEncoder   token.AnyTokenEncoder
+	clientCredentialsWriter *clientcredentials.Writer
 }
 
 type WriterConfigOption func(*Writer) error
@@ -36,19 +36,19 @@ func NewWriter(configOptions ...WriterConfigOption) (*Writer, error) {
 			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, err)
 		}
 	}
-	if writer.clientCredentialsEncoder == nil {
+	if writer.clientCredentialsWriter == nil {
 		encoder, err := clientcredentials.NewWriter()
 		if err != nil {
 			return nil, err
 		}
-		writer.clientCredentialsEncoder = encoder
+		writer.clientCredentialsWriter = encoder
 	}
 	return writer, nil
 }
 
 // WriteArtifact implements [vapi.Writer].
 func (w *Writer) WriteArtifact(ctx context.Context, carrierWriter *http.Request, artifact *TokenRequest, options ...WriterOption) error {
-	if w == nil || w.clientCredentialsEncoder == nil {
+	if w == nil || w.clientCredentialsWriter == nil {
 		return vapi.NewErrorCategory(vapi.ErrMisconfigured, errors.New("cannot write token request with nil client credentials encoder"))
 	}
 	if carrierWriter == nil {
@@ -81,7 +81,7 @@ func (w *Writer) WriteArtifact(ctx context.Context, carrierWriter *http.Request,
 }
 
 func (w *Writer) writeArtifact(ctx context.Context, carrier *http.Request, artifact *TokenRequest) error {
-	if err := w.clientCredentialsEncoder.WriteArtifact(ctx, carrier, &artifact.ClientCredentials); err != nil {
+	if err := w.clientCredentialsWriter.WriteArtifact(ctx, carrier, &artifact.ClientCredentials); err != nil {
 		return fmt.Errorf("write client credentials: %w", err)
 	}
 
