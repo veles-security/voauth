@@ -76,7 +76,7 @@ func (r *Reader) readArtifact(ctx context.Context, carrier *http.Request) (*Clie
 
 	credentials := &ClientCredentials{}
 	switch method {
-	case "client_secret_basic":
+	case ClientSecretBasicAuthMethod:
 		clientID, clientSecret, _ := carrier.BasicAuth()
 		credentials.ClientId, err = url.QueryUnescape(clientID)
 		if err == nil {
@@ -85,7 +85,7 @@ func (r *Reader) readArtifact(ctx context.Context, carrier *http.Request) (*Clie
 		if err != nil {
 			return nil, vapi.NewErrorCategory(vapi.ErrMalformed, fmt.Errorf("decode basic client credentials: %w", err))
 		}
-	case "client_secret_post":
+	case ClientSecretPostAuthMethod:
 		credentials.ClientId = carrier.PostForm.Get("client_id")
 		credentials.ClientSecret = carrier.PostForm.Get("client_secret")
 	default: // JWT client assertion methods share the same wire representation.
@@ -129,12 +129,12 @@ func (r *Reader) clientAuthMethod(carrier *http.Request) (string, error) {
 		return "", vapi.NewErrorCategory(vapi.ErrUnauthenticated, errors.New("multiple client authentication methods"))
 	}
 	if basic {
-		return "client_secret_basic", nil
+		return ClientSecretBasicAuthMethod, nil
 	}
 	if secretPost {
-		return "client_secret_post", nil
+		return ClientSecretPostAuthMethod, nil
 	}
-	return "private_key_jwt", nil
+	return PrivateKeyJwtAuthMethod, nil
 }
 
 var _ vapi.Reader[*http.Request, *ClientCredentials, ReaderOption] = &Reader{}
