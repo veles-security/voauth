@@ -3,52 +3,100 @@ package jwt
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 
-	velesapi "github.com/veles-security/vapi"
+	"github.com/veles-security/vapi"
 )
 
 type Reader struct {
-	decoder velesapi.Decoder[*Token, DecoderOption]
+	decoder vapi.Decoder[*Token, DecoderOption]
 }
 
-type ReaderOption func(*Reader)
+type ReaderConfigOption func(*Reader) error
 
-func NewJwtExtractor(options ...ReaderOption) *Reader {
-	extractor := &Reader{}
-	for _, option := range options {
-		option(extractor)
+type ReadFunc func(ctx context.Context, carrier *http.Request) (*Token, error)
+
+type ReaderOption func(next ReadFunc) ReadFunc
+
+func NewReader(configOptions ...ReaderConfigOption) (*Reader, error) {
+	reader := &Reader{}
+	for _, option := range configOptions {
+		if option == nil {
+			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, errors.New("nil reader config option"))
+		}
+		if err := option(reader); err != nil {
+			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, err)
+		}
 	}
-	if extractor.decoder == nil {
-		extractor.decoder = NewJwtDecoder()
+	if reader.decoder == nil {
+		reader.decoder = NewJwtDecoder()
 	}
-	return extractor
+	return reader, nil
 }
 
-// AddCredentials implements [velesapi.Reader].
-func (j *Reader) ReadArtifact(ctx context.Context, request *http.Request, options ...ReaderOption) (*Token, error) {
-	if request == nil {
-		return nil, velesapi.NewErrorCategory(velesapi.ErrMalformed, errors.New("nil request"))
+// WithDecoder configures the decoder used to decode JWTs.
+func WithDecoder(decoder vapi.Decoder[*Token, DecoderOption]) ReaderConfigOption {
+	return func(reader *Reader) error {
+		if decoder == nil {
+			return errors.New("nil JWT decoder")
+		}
+		reader.decoder = decoder
+		return nil
+	}
+}
+
+// ReadArtifact implements [vapi.Reader].
+func (r *Reader) ReadArtifact(ctx context.Context, carrier *http.Request, options ...ReaderOption) (*Token, error) {
+	if r == nil || r.decoder == nil {
+		return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, errors.New("cannot read JWT with nil JWT decoder"))
+	}
+	if carrier == nil {
+		return nil, vapi.NewErrorCategory(vapi.ErrMalformed, errors.New("cannot read JWT from nil request"))
 	}
 
-	values := request.Header.Values("Authorization")
+	next := r.readArtifact
+	for index := len(options) - 1; index >= 0; index-- {
+		option := options[index]
+		if option == nil {
+			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, fmt.Errorf("nil reader option at index %d", index))
+		}
+		wrapped := option(next)
+		if wrapped == nil {
+			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, fmt.Errorf("reader option at index %d returned nil ReadFunc", index))
+		}
+		next = wrapped
+	}
+
+	return next(ctx, carrier)
+}
+
+func (r *Reader) readArtifact(ctx context.Context, carrier *http.Request) (*Token, error) {
+	values := carrier.Header.Values("Authorization")
 	if len(values) == 0 {
-		return nil, velesapi.ErrNotApplicable
+		return nil, vapi.ErrNotApplicable
 	}
 	if len(values) != 1 {
-		return nil, velesapi.NewErrorCategory(velesapi.ErrUnauthenticated, errors.New("ambiguous authorization credentials"))
+		return nil, vapi.NewErrorCategory(vapi.ErrUnauthenticated, errors.New("ambiguous authorization credentials"))
 	}
 
 	scheme, credential, found := strings.Cut(values[0], " ")
 	if !strings.EqualFold(scheme, "Bearer") {
-		return nil, velesapi.ErrNotApplicable
+		return nil, vapi.ErrNotApplicable
 	}
 	if !found || credential == "" || strings.ContainsAny(credential, " \t\r\n,") {
-		return nil, velesapi.NewErrorCategory(velesapi.ErrUnauthenticated, errors.New("malformed bearer credentials"))
+		return nil, vapi.NewErrorCategory(vapi.ErrUnauthenticated, errors.New("malformed bearer credentials"))
 	}
 
-	return j.decoder.Decode(ctx, []byte(credential))
+	artifact, err := r.decoder.Decode(ctx, []byte(credential))
+	if err != nil {
+		return nil, vapi.NewErrorCategory(vapi.ErrMalformed, fmt.Errorf("decode JWT: %w", err))
+	}
+	if artifact == nil {
+		return nil, vapi.NewErrorCategory(vapi.ErrMalformed, errors.New("decode JWT returned nil artifact"))
+	}
+	return artifact, nil
 }
 
-var _ velesapi.Reader[*http.Request, *Token, ReaderOption] = &Reader{}
+var _ vapi.Reader[*http.Request, *Token, ReaderOption] = &Reader{}
