@@ -3,6 +3,8 @@ package tokenresponse
 import (
 	"context"
 	"errors"
+	"fmt"
+	"io"
 	"net/http"
 
 	"github.com/veles-security/vapi"
@@ -40,7 +42,46 @@ func NewReader(configOptions ...ReaderConfigOption) (*Reader, error) {
 
 // ReadArtifact implements [vapi.Reader].
 func (r *Reader) ReadArtifact(ctx context.Context, carrier *http.Response, options ...ReaderOption) (*TokenResponse, error) {
-	panic("unimplemented")
+	if r == nil || r.decoder == nil {
+		return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, errors.New("cannot read token response with nil decoder"))
+	}
+	if carrier == nil {
+		return nil, vapi.NewErrorCategory(vapi.ErrMalformed, errors.New("cannot read token response from nil HTTP response"))
+	}
+	if carrier.Body == nil {
+		return nil, vapi.NewErrorCategory(vapi.ErrMalformed, errors.New("cannot read token response with nil body"))
+	}
+
+	next := r.readArtifact
+	for index := len(options) - 1; index >= 0; index-- {
+		option := options[index]
+		if option == nil {
+			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, fmt.Errorf("nil reader option at index %d", index))
+		}
+		wrapped := option(next)
+		if wrapped == nil {
+			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, fmt.Errorf("reader option at index %d returned nil ReadFunc", index))
+		}
+		next = wrapped
+	}
+
+	return next(ctx, carrier)
+}
+
+func (r *Reader) readArtifact(ctx context.Context, carrier *http.Response) (*TokenResponse, error) {
+	payload, err := io.ReadAll(carrier.Body)
+	if err != nil {
+		return nil, vapi.NewErrorCategory(vapi.ErrMalformed, fmt.Errorf("read token response: %w", err))
+	}
+
+	artifact, err := r.decoder.Decode(ctx, payload)
+	if err != nil {
+		return nil, vapi.NewErrorCategory(vapi.ErrMalformed, fmt.Errorf("decode token response: %w", err))
+	}
+	if artifact == nil {
+		return nil, vapi.NewErrorCategory(vapi.ErrMalformed, errors.New("decode token response returned nil artifact"))
+	}
+	return artifact, nil
 }
 
 var _ vapi.Reader[*http.Response, *TokenResponse, ReaderOption] = &Reader{}
