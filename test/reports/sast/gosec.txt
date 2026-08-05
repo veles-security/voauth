@@ -1,10 +1,24 @@
 Results:
 
 
+[/workspace/tokenrequest/tokenrequest.go:18] - G101 (CWE-798): Potential hardcoded credentials (Confidence: LOW, Severity: HIGH)
+    17: 	JwtBearerGrantType         = "urn:ietf:params:oauth:grant-type:jwt-bearer"
+  > 18: 	Saml2BearerGrantType       = "urn:ietf:params:oauth:grant-type:saml2-bearer"
+    19: )
+
+Autofix: 
+
+[/workspace/tokenrequest/tokenrequest.go:17] - G101 (CWE-798): Potential hardcoded credentials (Confidence: LOW, Severity: HIGH)
+    16: 	DeviceCodeGrantType        = "urn:ietf:params:oauth:grant-type:device_code"
+  > 17: 	JwtBearerGrantType         = "urn:ietf:params:oauth:grant-type:jwt-bearer"
+    18: 	Saml2BearerGrantType       = "urn:ietf:params:oauth:grant-type:saml2-bearer"
+
+Autofix: 
+
 Summary:
   Gosec  : dev
-  Files  : 29
-  Lines  : 2242
+  Files  : 32
+  Lines  : 2811
   Nosec  : 7
-  Issues : 0
+  Issues : 2
 
