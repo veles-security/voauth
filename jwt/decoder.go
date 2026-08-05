@@ -9,6 +9,7 @@ import (
 	"fmt"
 
 	"github.com/veles-security/vapi"
+	"github.com/veles-security/voauth/token"
 )
 
 type Decoder struct{}
@@ -55,6 +56,11 @@ func (d *Decoder) Decode(ctx context.Context, payload []byte, options ...Decoder
 	}
 
 	return next(ctx, payload)
+}
+
+// implements [token.AnyTokenDecoder].
+func (d *Decoder) DecodeAnyToken(ctx context.Context, payload []byte) (token.AnyToken, error) {
+	return d.Decode(ctx, payload)
 }
 
 func (d *Decoder) decode(_ context.Context, encoded []byte) (*Token, error) {
@@ -122,3 +128,4 @@ func (d *Decoder) split(jwtBytes []byte) (header, payload, signature []byte, err
 }
 
 var _ vapi.Decoder[*Token, DecoderOption] = &Decoder{}
+var _ token.AnyTokenDecoder = &Decoder{}
