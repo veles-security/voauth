@@ -8,6 +8,7 @@ import (
 
 	"github.com/veles-security/vapi"
 	"github.com/veles-security/voauth/clientcredentials"
+	"github.com/veles-security/voauth/jwt"
 	"github.com/veles-security/voauth/token"
 )
 
@@ -39,6 +40,20 @@ func NewReader(configOptions ...ReaderConfigOption) (*Reader, error) {
 			return nil, err
 		}
 		reader.clientCredentialsReader = credentialsReader
+	}
+	if reader.tokenDecoder == nil {
+		decoder, err := jwt.NewDecoder()
+		if err != nil {
+			return nil, err
+		}
+		reader.tokenDecoder = decoder
+	}
+	if reader.assertionTokenDecoder == nil {
+		decoder, err := jwt.NewDecoder()
+		if err != nil {
+			return nil, err
+		}
+		reader.assertionTokenDecoder = decoder
 	}
 	return reader, nil
 }
