@@ -13,22 +13,54 @@ import (
 	"github.com/veles-security/voauth/internal/testkeys"
 )
 
+func TestNewIssuer(t *testing.T) {
+	tests := []struct {
+		name    string
+		options []IssuerConfigOption
+		wantErr error
+	}{
+		{name: "defaults to unsigned tokens"},
+		{name: "rejects nil option", options: []IssuerConfigOption{nil}, wantErr: vapi.ErrMisconfigured},
+		{name: "categorizes option error", options: []IssuerConfigOption{func(*Issuer) error { return errors.New("failure") }}, wantErr: vapi.ErrMisconfigured},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			issuer, err := NewIssuer(test.options...)
+			if test.wantErr != nil {
+				if issuer != nil || !errors.Is(err, test.wantErr) {
+					t.Fatalf("NewIssuer() = (%#v, %v), want nil and %v", issuer, err, test.wantErr)
+				}
+				return
+			}
+			if err != nil || issuer == nil {
+				t.Fatalf("NewIssuer() = (%#v, %v), want non-nil issuer", issuer, err)
+			}
+		})
+	}
+}
+
 func TestIssuer_Issue(t *testing.T) {
 	privateKey := testkeys.Private(t, testkeys.RSA2048).(*rsa.PrivateKey)
 	signer := &sig.Signer{Kid: "test-key", Alg: sig.SigAlgRS256, Key: privateKey}
+	signedIssuer, err := NewIssuer(WithSigner(signer))
+	if err != nil {
+		t.Fatal(err)
+	}
+	unsignedIssuer, err := NewIssuer()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	tests := []struct {
 		name       string
 		issuer     *Issuer
-		options    []JwtIssuerOption
+		options    []IssuerOption
 		assertions func(*testing.T, *Token, error)
 	}{
 		{
-			name:    "signs the complete compact JWS input",
-			issuer:  NewIssuer(signer, WithIssuer("https://issuer.example")),
-			options: []JwtIssuerOption{WithSubject("client"), WithClaims(Cliams{"role": "reader"})},
+			name: "signs after runtime decorators execute", issuer: signedIssuer,
+			options: []IssuerOption{WithIssuer("https://issuer.example"), WithSubject("client"), WithClaims(Cliams{"role": "reader"})},
 			assertions: func(t *testing.T, token *Token, err error) {
-				t.Helper()
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -67,18 +99,42 @@ func TestIssuer_Issue(t *testing.T) {
 			},
 		},
 		{
-			name:   "rejects nil signer",
-			issuer: NewIssuer(nil),
+			name: "issues unsigned token without signer", issuer: unsignedIssuer,
 			assertions: func(t *testing.T, token *Token, err error) {
-				t.Helper()
-				if token != nil {
-					t.Fatalf("token = %#v, want nil", token)
+				if err != nil {
+					t.Fatal(err)
 				}
-				if !errors.Is(err, vapi.ErrMisconfigured) {
-					t.Fatalf("error = %v, want ErrMisconfigured", err)
+				if token.Header["alg"] != "none" || len(token.signature) != 0 {
+					t.Fatalf("unsigned token = header %#v, signature %x", token.Header, token.signature)
+				}
+				encoder, err := NewEncoder()
+				if err != nil {
+					t.Fatal(err)
+				}
+				encoded, err := encoder.Encode(context.Background(), token)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if !strings.HasSuffix(string(encoded), ".") {
+					t.Fatalf("unsigned compact JWT %q does not have an empty signature", encoded)
 				}
 			},
 		},
+		{name: "rejects nil receiver", issuer: nil, assertions: func(t *testing.T, token *Token, err error) {
+			if token != nil || !errors.Is(err, vapi.ErrMisconfigured) {
+				t.Fatalf("Issue() = (%#v, %v), want nil and ErrMisconfigured", token, err)
+			}
+		}},
+		{name: "rejects nil runtime option", issuer: unsignedIssuer, options: []IssuerOption{nil}, assertions: func(t *testing.T, token *Token, err error) {
+			if token != nil || !errors.Is(err, vapi.ErrMisconfigured) {
+				t.Fatalf("Issue() = (%#v, %v), want nil and ErrMisconfigured", token, err)
+			}
+		}},
+		{name: "rejects nil decorator result", issuer: unsignedIssuer, options: []IssuerOption{func(IssueFunc) IssueFunc { return nil }}, assertions: func(t *testing.T, token *Token, err error) {
+			if token != nil || !errors.Is(err, vapi.ErrMisconfigured) {
+				t.Fatalf("Issue() = (%#v, %v), want nil and ErrMisconfigured", token, err)
+			}
+		}},
 	}
 
 	for _, test := range tests {
