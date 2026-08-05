@@ -74,7 +74,7 @@ func (r *Reader) readArtifact(ctx context.Context, carrier *http.Request) (*Clie
 		return nil, err
 	}
 
-	credentials := &ClientCredentials{}
+	credentials := &ClientCredentials{AuthMethod: method}
 	switch method {
 	case ClientSecretBasicAuthMethod:
 		clientID, clientSecret, _ := carrier.BasicAuth()
