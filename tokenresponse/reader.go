@@ -6,12 +6,10 @@ import (
 	"net/http"
 
 	"github.com/veles-security/vapi"
-	"github.com/veles-security/voauth/jwt"
-	"github.com/veles-security/voauth/token"
 )
 
 type Reader struct {
-	tokenDecoder token.AnyTokenDecoder
+	decoder vapi.Decoder[*TokenResponse, DecoderOption]
 }
 
 type ReaderConfigOption func(*Reader) error
@@ -30,12 +28,12 @@ func NewReader(configOptions ...ReaderConfigOption) (*Reader, error) {
 			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, err)
 		}
 	}
-	if reader.tokenDecoder == nil {
-		decoder, err := jwt.NewDecoder()
+	if reader.decoder == nil {
+		decoder, err := NewDecoder()
 		if err != nil {
 			return nil, err
 		}
-		reader.tokenDecoder = decoder
+		reader.decoder = decoder
 	}
 	return reader, nil
 }
