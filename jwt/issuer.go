@@ -3,26 +3,34 @@ package jwt
 import (
 	"context"
 	"crypto/rand"
+	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"maps"
 	"time"
 
 	"github.com/veles-security/vapi"
+	"github.com/veles-security/vapi/sig"
 )
 
 type Issuer struct {
+	signer  *sig.Signer
 	options []JwtIssuerOption
 }
 
-func NewIssuer(options ...JwtIssuerOption) *Issuer {
-	issuer := &Issuer{}
+func NewIssuer(signer *sig.Signer, options ...JwtIssuerOption) *Issuer {
+	issuer := &Issuer{signer: signer}
 	issuer.options = options
 	return issuer
 }
 
 // Issue implements [vapi.IssueSchemer].
 func (j *Issuer) Issue(ctx context.Context, options ...JwtIssuerOption) (*Token, error) {
+	if j == nil || j.signer == nil {
+		return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, errors.New("cannot issue JWT with nil signer"))
+	}
 	token := &Token{
 		iat:    time.Now(),
 		Header: map[string]string{},
@@ -51,8 +59,33 @@ func (j *Issuer) Issue(ctx context.Context, options ...JwtIssuerOption) (*Token,
 		return nil, err
 	}
 
-	token.Claims["iat"] = token.iat
+	token.Claims["iat"] = token.iat.Unix()
 	token.Claims["jti"] = jti
+
+	algorithm, err := j.signer.Alg.ToOAuth()
+	if err != nil {
+		return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, fmt.Errorf("encode JWT signing algorithm: %w", err))
+	}
+	token.Header["alg"] = algorithm
+	if j.signer.Kid != "" {
+		token.Header["kid"] = j.signer.Kid
+	}
+
+	header, err := json.Marshal(token.Header)
+	if err != nil {
+		return nil, vapi.NewErrorCategory(vapi.ErrMalformed, fmt.Errorf("encode JWT header for signing: %w", err))
+	}
+	claims, err := json.Marshal(token.Claims)
+	if err != nil {
+		return nil, vapi.NewErrorCategory(vapi.ErrMalformed, fmt.Errorf("encode JWT claims for signing: %w", err))
+	}
+	headerEncoded := base64.RawURLEncoding.EncodeToString(header)
+	claimsEncoded := base64.RawURLEncoding.EncodeToString(claims)
+	signingInput := []byte(headerEncoded + "." + claimsEncoded)
+	token.signature, err = j.signer.Sign(ctx, sig.Message(signingInput))
+	if err != nil {
+		return nil, fmt.Errorf("sign JWT: %w", err)
+	}
 
 	return token, nil
 }
