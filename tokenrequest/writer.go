@@ -11,6 +11,7 @@ import (
 
 	"github.com/veles-security/vapi"
 	"github.com/veles-security/voauth/clientcredentials"
+	"github.com/veles-security/voauth/jwt"
 	"github.com/veles-security/voauth/token"
 )
 
@@ -37,11 +38,25 @@ func NewWriter(configOptions ...WriterConfigOption) (*Writer, error) {
 		}
 	}
 	if writer.clientCredentialsWriter == nil {
-		encoder, err := clientcredentials.NewWriter()
+		clientCredentialsWriter, err := clientcredentials.NewWriter()
 		if err != nil {
 			return nil, err
 		}
-		writer.clientCredentialsWriter = encoder
+		writer.clientCredentialsWriter = clientCredentialsWriter
+	}
+	if writer.tokenEncoder == nil {
+		encoder, err := jwt.NewEncoder()
+		if err != nil {
+			return nil, err
+		}
+		writer.tokenEncoder = encoder
+	}
+	if writer.assertionTokenEncoder == nil {
+		encoder, err := jwt.NewEncoder()
+		if err != nil {
+			return nil, err
+		}
+		writer.assertionTokenEncoder = encoder
 	}
 	return writer, nil
 }
