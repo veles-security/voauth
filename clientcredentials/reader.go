@@ -8,6 +8,7 @@ import (
 	"net/url"
 
 	"github.com/veles-security/vapi"
+	"github.com/veles-security/voauth/jwt"
 	"github.com/veles-security/voauth/token"
 )
 
@@ -31,18 +32,14 @@ func NewReader(configOptions ...ReaderConfigOption) (*Reader, error) {
 			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, err)
 		}
 	}
-	return reader, nil
-}
-
-// WithTokenDecoder configures the decoder used for client assertions.
-func WithTokenDecoder(decoder token.AnyTokenDecoder) ReaderConfigOption {
-	return func(reader *Reader) error {
-		if decoder == nil {
-			return errors.New("nil token decoder")
+	if reader.tokenDecoder == nil {
+		decoder, err := jwt.NewDecoder()
+		if err != nil {
+			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, err)
 		}
 		reader.tokenDecoder = decoder
-		return nil
 	}
+	return reader, nil
 }
 
 // ReadArtifact implements [vapi.Reader].

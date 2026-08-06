@@ -8,9 +8,9 @@ import (
 const ClientCredentialsKind = "oauth2:client_credentials" // #nosec G101 -- client credentials kind identifier, not a credential
 
 const (
-	ClientSecretBasicAuthMethod = "client_secret_basic"
-	ClientSecretPostAuthMethod  = "client_secret_post"
-	PrivateKeyJwtAuthMethod     = "private_key_jwt"
+	ClientSecretBasicAuthMethod = "client_secret_basic" // #nosec G101 -- client credentials auth method identifier, not a credential
+	ClientSecretPostAuthMethod  = "client_secret_post"  // #nosec G101 -- client credentials auth method identifier, not a credential
+	PrivateKeyJwtAuthMethod     = "private_key_jwt"     // #nosec G101 -- client credentials auth method identifier, not a credential
 )
 
 type ClientCredentials struct {
