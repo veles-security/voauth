@@ -7,8 +7,8 @@ import (
 	"github.com/veles-security/voauth/jwk"
 )
 
-// WithJwkDecoder configures the decoder used to decode each JWK in a set.
-func WithJwkDecoder(decoder vapi.Decoder[*jwk.Jwk, jwk.DecoderOption]) DecoderConfigOption {
+// WithDecoderJwkDecoder configures the decoder used to decode each JWK in a set.
+func WithDecoderJwkDecoder(decoder vapi.Decoder[*jwk.Jwk, jwk.DecoderOption]) DecoderConfigOption {
 	return func(target *Decoder) error {
 		if decoder == nil {
 			return errors.New("nil JWK decoder")
@@ -18,9 +18,9 @@ func WithJwkDecoder(decoder vapi.Decoder[*jwk.Jwk, jwk.DecoderOption]) DecoderCo
 	}
 }
 
-// WithJwkDecoderOptions configures the decoder used to decode each JWK in a
+// WithDecoderJwkDecoderOptions configures the decoder used to decode each JWK in a
 // set by constructing it with the provided JWK decoder configuration options.
-func WithJwkDecoderOptions(options ...jwk.DecoderConfigOption) DecoderConfigOption {
+func WithDecoderJwkDecoderOptions(options ...jwk.DecoderConfigOption) DecoderConfigOption {
 	return func(target *Decoder) error {
 		decoder, err := jwk.NewDecoder(options...)
 		if err != nil {
