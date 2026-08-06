@@ -3,17 +3,17 @@
 ┌─────────────┐
 │ Scan Status │
 └─────────────┘
-  Scanning 41 files tracked by git with 1074 Code rules:
+  Scanning 63 files tracked by git with 1074 Code rules:
                                                                                                                         
   Language      Rules   Files          Origin      Rules                                                                
  ─────────────────────────────        ───────────────────                                                               
-  <multilang>      47      41          Community    1074                                                                
-  go               84      32                                                                                           
+  <multilang>      47      63          Community    1074                                                                
+  go               84      54                                                                                           
                                                                                                                         
                    
                    
 ┌─────────────────┐
-│ 5 Code Findings │
+│ 6 Code Findings │
 └─────────────────┘
                                           
     internal/testkeys/testdata/ed25519.pem
@@ -60,6 +60,15 @@
                                                                                                          
             1┆ -----BEGIN PRIVATE KEY-----
             2┆ MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDHjnuy4dEPufyp
+                           
+    tokenresponse/writer.go
+    ❯❱ go.lang.security.audit.xss.no-direct-write-to-responsewriter.no-direct-write-to-responsewriter
+          Detected directly writing or similar in 'http.ResponseWriter.write()'. This bypasses HTML escaping
+          that prevents cross-site scripting vulnerabilities. Instead, use the 'html/template' package and  
+          render data using 'template.Execute()'.                                                           
+          Details: https://sg.run/EkbA                                                                      
+                                                                                                            
+           59┆ if _, err = carrierWriter.Write(payload); err != nil {
 
                 
                 
@@ -67,14 +76,14 @@
 │ Scan Summary │
 └──────────────┘
 ✅ Scan completed successfully.
- • Findings: 5 (5 blocking)
+ • Findings: 6 (6 blocking)
  • Rules run: 131
- • Targets scanned: 41
+ • Targets scanned: 63
  • Parsed lines: ~100.0%
  • Scan skipped: 
-   ◦ Files matching .semgrepignore patterns: 6
+   ◦ Files matching .semgrepignore patterns: 11
  • Scan was limited to files tracked by git
  • For a detailed list of skipped files and lines, run semgrep with the --verbose flag
-Ran 131 rules on 41 files: 5 findings.
+Ran 131 rules on 63 files: 6 findings.
 
 A new version of Semgrep is available. See https://semgrep.dev/docs/upgrading

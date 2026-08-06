@@ -1,24 +1,17 @@
 Results:
 
 
-[/workspace/tokenrequest/tokenrequest.go:18] - G101 (CWE-798): Potential hardcoded credentials (Confidence: LOW, Severity: HIGH)
-    17: 	JwtBearerGrantType         = "urn:ietf:params:oauth:grant-type:jwt-bearer"
-  > 18: 	Saml2BearerGrantType       = "urn:ietf:params:oauth:grant-type:saml2-bearer"
-    19: )
-
-Autofix: 
-
-[/workspace/tokenrequest/tokenrequest.go:17] - G101 (CWE-798): Potential hardcoded credentials (Confidence: LOW, Severity: HIGH)
-    16: 	DeviceCodeGrantType        = "urn:ietf:params:oauth:grant-type:device_code"
-  > 17: 	JwtBearerGrantType         = "urn:ietf:params:oauth:grant-type:jwt-bearer"
-    18: 	Saml2BearerGrantType       = "urn:ietf:params:oauth:grant-type:saml2-bearer"
+[/workspace/tokenresponse/encoder.go:71] - G117 (CWE-499): Marshaled struct field "AccessToken" (JSON key "access_token") matches secret pattern (Confidence: MEDIUM, Severity: MEDIUM)
+    70: 	}
+  > 71: 	payload, err := json.Marshal(representation)
+    72: 	if err != nil {
 
 Autofix: 
 
 Summary:
   Gosec  : dev
-  Files  : 32
-  Lines  : 2811
-  Nosec  : 7
-  Issues : 2
+  Files  : 54
+  Lines  : 4245
+  Nosec  : 15
+  Issues : 1
 

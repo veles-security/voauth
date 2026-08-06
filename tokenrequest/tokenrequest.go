@@ -9,13 +9,13 @@ import (
 const TokenRequestKind = "oauth2:token_request" // #nosec G101 -- token request kind identifier, not a credential
 
 const (
-	AuthorizationCodeGrantType = "authorization_code"
-	PasswordGrantType          = "password"
-	ClientCredentialsGrantType = "client_credentials"
-	RefreshTokenGrantType      = "refresh_token"
-	DeviceCodeGrantType        = "urn:ietf:params:oauth:grant-type:device_code"
-	JwtBearerGrantType         = "urn:ietf:params:oauth:grant-type:jwt-bearer"
-	Saml2BearerGrantType       = "urn:ietf:params:oauth:grant-type:saml2-bearer"
+	AuthorizationCodeGrantType = "authorization_code"                            // #nosec G101 -- token request grant type identifier, not a credential
+	PasswordGrantType          = "password"                                      // #nosec G101 -- token request grant type identifier, not a credential
+	ClientCredentialsGrantType = "client_credentials"                            // #nosec G101 -- token request grant type identifier, not a credential
+	RefreshTokenGrantType      = "refresh_token"                                 // #nosec G101 -- token request grant type identifier, not a credential
+	DeviceCodeGrantType        = "urn:ietf:params:oauth:grant-type:device_code"  // #nosec G101 -- token request grant type identifier, not a credential
+	JwtBearerGrantType         = "urn:ietf:params:oauth:grant-type:jwt-bearer"   // #nosec G101 -- token request grant type identifier, not a credential
+	Saml2BearerGrantType       = "urn:ietf:params:oauth:grant-type:saml2-bearer" // #nosec G101 -- token request grant type identifier, not a credential
 )
 
 type TokenRequest struct {
