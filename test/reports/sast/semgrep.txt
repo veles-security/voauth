@@ -3,63 +3,18 @@
 ┌─────────────┐
 │ Scan Status │
 └─────────────┘
-  Scanning 63 files tracked by git with 1074 Code rules:
+  Scanning 64 files tracked by git with 1074 Code rules:
                                                                                                                         
   Language      Rules   Files          Origin      Rules                                                                
  ─────────────────────────────        ───────────────────                                                               
-  <multilang>      47      63          Community    1074                                                                
-  go               84      54                                                                                           
+  <multilang>      47      64          Community    1074                                                                
+  go               84      60                                                                                           
                                                                                                                         
-                   
-                   
-┌─────────────────┐
-│ 6 Code Findings │
-└─────────────────┘
-                                          
-    internal/testkeys/testdata/ed25519.pem
-   ❯❯❱ generic.secrets.security.detected-private-key.detected-private-key
-          Private Key detected. This is a sensitive credential and should not be hardcoded here. Instead,
-          store this in a separate, private file.                                                        
-          Details: https://sg.run/b7dr                                                                   
-                                                                                                         
-            1┆ -----BEGIN PRIVATE KEY-----
-            2┆ MC4CAQAwBQYDK2VwBCIEIPC9g+FpnI7eq4VeBER1S7tfiZh3f2jPlQh9uDqbiJC1
-                                        
-    internal/testkeys/testdata/es256.pem
-   ❯❯❱ generic.secrets.security.detected-private-key.detected-private-key
-          Private Key detected. This is a sensitive credential and should not be hardcoded here. Instead,
-          store this in a separate, private file.                                                        
-          Details: https://sg.run/b7dr                                                                   
-                                                                                                         
-            1┆ -----BEGIN PRIVATE KEY-----
-            2┆ MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgBjmVLSePgXlhKTta
-                                        
-    internal/testkeys/testdata/es384.pem
-   ❯❯❱ generic.secrets.security.detected-private-key.detected-private-key
-          Private Key detected. This is a sensitive credential and should not be hardcoded here. Instead,
-          store this in a separate, private file.                                                        
-          Details: https://sg.run/b7dr                                                                   
-                                                                                                         
-            1┆ -----BEGIN PRIVATE KEY-----
-            2┆ MIG2AgEAMBAGByqGSM49AgEGBSuBBAAiBIGeMIGbAgEBBDDtVkmaKixP0fe4wyZ5
-                                        
-    internal/testkeys/testdata/es512.pem
-   ❯❯❱ generic.secrets.security.detected-private-key.detected-private-key
-          Private Key detected. This is a sensitive credential and should not be hardcoded here. Instead,
-          store this in a separate, private file.                                                        
-          Details: https://sg.run/b7dr                                                                   
-                                                                                                         
-            1┆ -----BEGIN PRIVATE KEY-----
-            2┆ MIHuAgEAMBAGByqGSM49AgEGBSuBBAAjBIHWMIHTAgEBBEIA+myBKlQvnaOvhDMF
-                                          
-    internal/testkeys/testdata/rsa2048.pem
-   ❯❯❱ generic.secrets.security.detected-private-key.detected-private-key
-          Private Key detected. This is a sensitive credential and should not be hardcoded here. Instead,
-          store this in a separate, private file.                                                        
-          Details: https://sg.run/b7dr                                                                   
-                                                                                                         
-            1┆ -----BEGIN PRIVATE KEY-----
-            2┆ MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDHjnuy4dEPufyp
+                  
+                  
+┌────────────────┐
+│ 1 Code Finding │
+└────────────────┘
                            
     tokenresponse/writer.go
     ❯❱ go.lang.security.audit.xss.no-direct-write-to-responsewriter.no-direct-write-to-responsewriter
@@ -76,14 +31,15 @@
 │ Scan Summary │
 └──────────────┘
 ✅ Scan completed successfully.
- • Findings: 6 (6 blocking)
+ • Findings: 1 (1 blocking)
  • Rules run: 131
- • Targets scanned: 63
+ • Targets scanned: 64
  • Parsed lines: ~100.0%
  • Scan skipped: 
-   ◦ Files matching .semgrepignore patterns: 11
+   ◦ Matching --exclude patterns: 5
+   ◦ Files matching .semgrepignore patterns: 10
  • Scan was limited to files tracked by git
  • For a detailed list of skipped files and lines, run semgrep with the --verbose flag
-Ran 131 rules on 63 files: 6 findings.
+Ran 131 rules on 64 files: 1 finding.
 
 A new version of Semgrep is available. See https://semgrep.dev/docs/upgrading

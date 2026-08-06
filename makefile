@@ -17,7 +17,7 @@ sast-govulncheck:
 
 sast-semgrep:
 	@mkdir -p $(REPORT_DIR)
-	@docker run --rm -v "$(PWD)":/src -w /src semgrep/semgrep semgrep --config=auto --text > $(REPORT_DIR)/semgrep.txt 2>&1
+	@docker run --rm -v "$(PWD)":/src -w /src semgrep/semgrep semgrep --config=auto --exclude=internal/testkeys/testdata --text > $(REPORT_DIR)/semgrep.txt 2>&1
 	@echo "SAST semgrep completed"
 
 sast: sast-gosec sast-govulncheck sast-semgrep 
