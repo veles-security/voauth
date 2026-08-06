@@ -14,7 +14,9 @@ import (
 	"github.com/veles-security/vapi"
 )
 
-type Encoder struct{}
+type Encoder struct {
+	runtimeOptions []EncoderOption
+}
 
 type EncoderConfigOption func(*Encoder) error
 
@@ -49,9 +51,13 @@ func (e *Encoder) Encode(ctx context.Context, artifact *Jwk, options ...EncoderO
 		return nil, vapi.NewErrorCategory(vapi.ErrMalformed, errors.New("cannot encode JWK with nil key"))
 	}
 
+	allOptions := make([]EncoderOption, 0, len(e.runtimeOptions)+len(options))
+	allOptions = append(allOptions, e.runtimeOptions...)
+	allOptions = append(allOptions, options...)
+
 	next := e.encode
-	for index := len(options) - 1; index >= 0; index-- {
-		option := options[index]
+	for index := len(allOptions) - 1; index >= 0; index-- {
+		option := allOptions[index]
 		if option == nil {
 			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, fmt.Errorf("nil encoder option at index %d", index))
 		}

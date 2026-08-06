@@ -8,9 +8,9 @@ import (
 	"fmt"
 )
 
-// WithThumbprintKid calculates an absent kid from the JWK Thumbprint defined by
+// WithEncoderThumbprintKid calculates an absent kid from the JWK Thumbprint defined by
 // RFC 7638. An explicitly supplied kid is always preserved.
-func WithThumbprintKid() EncoderOption {
+func WithEncoderThumbprintKid() EncoderOption {
 	return func(next EncodeFunc) EncodeFunc {
 		return func(ctx context.Context, artifact *Jwk, representation *JwkRepresentation) error {
 			if err := next(ctx, artifact, representation); err != nil {
