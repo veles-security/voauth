@@ -17,3 +17,16 @@ func WithJwkDecoder(decoder vapi.Decoder[*jwk.Jwk, jwk.DecoderOption]) DecoderCo
 		return nil
 	}
 }
+
+// WithJwkDecoderOptions configures the decoder used to decode each JWK in a
+// set by constructing it with the provided JWK decoder configuration options.
+func WithJwkDecoderOptions(options ...jwk.DecoderConfigOption) DecoderConfigOption {
+	return func(target *Decoder) error {
+		decoder, err := jwk.NewDecoder(options...)
+		if err != nil {
+			return err
+		}
+		target.jwkDecoder = decoder
+		return nil
+	}
+}
