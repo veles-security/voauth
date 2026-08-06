@@ -7,54 +7,76 @@ import (
 	"crypto/rsa"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/big"
 
 	"github.com/veles-security/vapi"
 )
 
-type Encoder struct {
-	options []EncoderOption
-}
+type Encoder struct{}
+
+type EncoderConfigOption func(*Encoder) error
 
 // EncodeFunc populates a JWK representation. Encoder options decorate
 // functions of this type.
 type EncodeFunc func(context.Context, *Jwk, *JwkRepresentation) error
 
-type EncoderOption interface {
-	Apply(EncodeFunc) EncodeFunc
-}
+type EncoderOption func(next EncodeFunc) EncodeFunc
 
-func NewEncoder(options ...EncoderOption) *Encoder {
-	if len(options) == 0 {
-		options = []EncoderOption{WithThumbprintKid()}
+func NewEncoder(configOptions ...EncoderConfigOption) (*Encoder, error) {
+	encoder := &Encoder{}
+	for _, option := range configOptions {
+		if option == nil {
+			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, errors.New("nil encoder config option"))
+		}
+		if err := option(encoder); err != nil {
+			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, err)
+		}
 	}
-	return &Encoder{options: append([]EncoderOption(nil), options...)}
+	return encoder, nil
 }
 
 // Encode implements [vapi.Encoder].
-func (j *Encoder) Encode(ctx context.Context, artifact *Jwk, options ...EncoderOption) ([]byte, error) {
-	encode := j.encode
-	allOptions := append(append([]EncoderOption(nil), j.options...), options...)
-	for i := len(allOptions) - 1; i >= 0; i-- {
-		encode = allOptions[i].Apply(encode)
+func (e *Encoder) Encode(ctx context.Context, artifact *Jwk, options ...EncoderOption) ([]byte, error) {
+	if e == nil {
+		return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, errors.New("cannot encode JWK with nil encoder"))
+	}
+	if artifact == nil {
+		return nil, vapi.NewErrorCategory(vapi.ErrMalformed, errors.New("cannot encode nil JWK"))
+	}
+	if artifact.Key == nil {
+		return nil, vapi.NewErrorCategory(vapi.ErrMalformed, errors.New("cannot encode JWK with nil key"))
+	}
+
+	next := e.encode
+	for index := len(options) - 1; index >= 0; index-- {
+		option := options[index]
+		if option == nil {
+			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, fmt.Errorf("nil encoder option at index %d", index))
+		}
+		wrapped := option(next)
+		if wrapped == nil {
+			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, fmt.Errorf("encoder option at index %d returned nil EncodeFunc", index))
+		}
+		next = wrapped
 	}
 
 	representation := &JwkRepresentation{}
-	if err := encode(ctx, artifact, representation); err != nil {
+	if err := next(ctx, artifact, representation); err != nil {
 		return nil, err
 	}
-	return json.Marshal(representation)
+	payload, err := json.Marshal(representation)
+	if err != nil {
+		return nil, vapi.NewErrorCategory(vapi.ErrMalformed, fmt.Errorf("encode JWK representation: %w", err))
+	}
+	return payload, nil
 }
 
-func (j *Encoder) encode(_ context.Context, artifact *Jwk, representation *JwkRepresentation) error {
-	if artifact == nil || artifact.Key == nil {
-		return fmt.Errorf("cannot encode nil JWK or key")
-	}
-
+func (e *Encoder) encode(_ context.Context, artifact *Jwk, representation *JwkRepresentation) error {
 	alg, err := artifact.Alg.ToOAuth()
 	if err != nil {
-		return err
+		return vapi.NewErrorCategory(vapi.ErrMalformed, fmt.Errorf("encode JWK algorithm: %w", err))
 	}
 	representation.Alg = alg
 	representation.Kid = artifact.Kid
@@ -69,7 +91,7 @@ func (j *Encoder) encode(_ context.Context, artifact *Jwk, representation *JwkRe
 		n := byteBuffer(base64.RawURLEncoding.EncodeToString(key.N.Bytes()))
 		representation.N = &n
 		if key.E <= 0 {
-			return fmt.Errorf("invalid RSA public exponent %d", key.E)
+			return vapi.NewErrorCategory(vapi.ErrMalformed, fmt.Errorf("invalid RSA public exponent %d", key.E))
 		}
 		exponent := big.NewInt(int64(key.E)).Bytes()
 		e := byteBuffer(base64.RawURLEncoding.EncodeToString(exponent))
@@ -84,7 +106,7 @@ func (j *Encoder) encode(_ context.Context, artifact *Jwk, representation *JwkRe
 		case "P-521":
 			representation.Crv = "P-521"
 		default:
-			return fmt.Errorf("unsupported elliptic curve %q", key.Curve.Params().Name)
+			return vapi.NewErrorCategory(vapi.ErrMalformed, fmt.Errorf("unsupported elliptic curve %q", key.Curve.Params().Name))
 		}
 		size := (key.Curve.Params().BitSize + 7) / 8
 		x := make([]byte, size)
@@ -101,7 +123,7 @@ func (j *Encoder) encode(_ context.Context, artifact *Jwk, representation *JwkRe
 		x := byteBuffer(base64.RawURLEncoding.EncodeToString(key))
 		representation.X = &x
 	default:
-		return fmt.Errorf("unsupported JWK key type %T", key)
+		return vapi.NewErrorCategory(vapi.ErrMalformed, fmt.Errorf("unsupported JWK key type %T", key))
 	}
 
 	return nil

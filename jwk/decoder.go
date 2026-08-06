@@ -20,26 +20,59 @@ import (
 
 type Decoder struct{}
 
-type DecoderOption func(*Decoder)
+type DecoderConfigOption func(*Decoder) error
 
-func NewDecoder(options ...DecoderOption) *Decoder {
-	encoder := &Decoder{}
-	for _, option := range options {
-		option(encoder)
+type DecodeFunc func(ctx context.Context, payload []byte) (*Jwk, error)
+
+type DecoderOption func(next DecodeFunc) DecodeFunc
+
+func NewDecoder(configOptions ...DecoderConfigOption) (*Decoder, error) {
+	decoder := &Decoder{}
+	for _, option := range configOptions {
+		if option == nil {
+			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, errors.New("nil decoder config option"))
+		}
+		if err := option(decoder); err != nil {
+			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, err)
+		}
 	}
-	return encoder
+	return decoder, nil
 }
 
-// Encode implements [vapi.Decoder].
-func (j *Decoder) Decode(ctx context.Context, payload []byte, options ...DecoderOption) (*Jwk, error) {
+// Decode implements [vapi.Decoder].
+func (d *Decoder) Decode(ctx context.Context, payload []byte, options ...DecoderOption) (*Jwk, error) {
+	if d == nil {
+		return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, errors.New("cannot decode JWK with nil decoder"))
+	}
+	if payload == nil {
+		return nil, vapi.NewErrorCategory(vapi.ErrMalformed, errors.New("cannot decode nil JWK payload"))
+	}
+
+	next := d.decode
+	for index := len(options) - 1; index >= 0; index-- {
+		option := options[index]
+		if option == nil {
+			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, fmt.Errorf("nil decoder option at index %d", index))
+		}
+		wrapped := option(next)
+		if wrapped == nil {
+			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, fmt.Errorf("decoder option at index %d returned nil DecodeFunc", index))
+		}
+		next = wrapped
+	}
+
+	return next(ctx, payload)
+}
+
+func (d *Decoder) decode(_ context.Context, payload []byte) (*Jwk, error) {
 	var representation JwkRepresentation
 	if err := json.Unmarshal(payload, &representation); err != nil {
-		return nil, err
+		return nil, vapi.NewErrorCategory(vapi.ErrMalformed, fmt.Errorf("decode JWK representation: %w", err))
 	}
 
 	alg, err := sig.NewSigAlgFromOAuth(representation.Alg)
 	if err != nil {
-		return nil, err
+		return nil, vapi.NewErrorCategory(vapi.ErrMalformed, fmt.Errorf("decode JWK algorithm: %w", err))
 	}
 	result := &Jwk{}
 	result.Kid = representation.Kid

@@ -8,33 +8,29 @@ import (
 	"fmt"
 )
 
-type thumbprintKidOption struct{}
-
 // WithThumbprintKid calculates an absent kid from the JWK Thumbprint defined by
 // RFC 7638. An explicitly supplied kid is always preserved.
 func WithThumbprintKid() EncoderOption {
-	return thumbprintKidOption{}
-}
+	return func(next EncodeFunc) EncodeFunc {
+		return func(ctx context.Context, artifact *Jwk, representation *JwkRepresentation) error {
+			if err := next(ctx, artifact, representation); err != nil {
+				return err
+			}
+			if representation.Kid != "" {
+				return nil
+			}
 
-func (o thumbprintKidOption) Apply(next EncodeFunc) EncodeFunc {
-	return func(ctx context.Context, artifact *Jwk, representation *JwkRepresentation) error {
-		if err := next(ctx, artifact, representation); err != nil {
-			return err
-		}
-		if representation.Kid != "" {
+			thumbprint, err := jwkThumbprint(*representation)
+			if err != nil {
+				return err
+			}
+			representation.Kid = thumbprint
 			return nil
 		}
-
-		thumbprint, err := o.jwkThumbprint(*representation)
-		if err != nil {
-			return err
-		}
-		representation.Kid = thumbprint
-		return nil
 	}
 }
 
-func (thumbprintKidOption) jwkThumbprint(jwk JwkRepresentation) (string, error) {
+func jwkThumbprint(jwk JwkRepresentation) (string, error) {
 	var canonical []byte
 	var err error
 
