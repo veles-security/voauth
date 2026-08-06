@@ -10,7 +10,8 @@ import (
 )
 
 type Writer struct {
-	encoder vapi.Encoder[*Jwks, EncoderOption]
+	encoder        vapi.Encoder[*Jwks, EncoderOption]
+	runtimeOptions []WriterOption
 }
 
 type WriterConfigOption func(*Writer) error
@@ -50,20 +51,21 @@ func (w *Writer) WriteArtifact(ctx context.Context, carrierWriter http.ResponseW
 		return vapi.NewErrorCategory(vapi.ErrMalformed, fmt.Errorf("cannot write JWKS response with no Keys"))
 	}
 
-	next := w.writeArtifact
+	allOptions := make([]WriterOption, 0, len(w.runtimeOptions)+len(options))
+	allOptions = append(allOptions, w.runtimeOptions...)
+	allOptions = append(allOptions, options...)
 
-	for index := len(options) - 1; index >= 0; index-- {
-		if options[index] != nil {
-			option := options[index]
-			if option == nil {
-				return vapi.NewErrorCategory(vapi.ErrMisconfigured, fmt.Errorf("nil writer option at index %d", index))
-			}
-			wrapped := option(next)
-			if wrapped == nil {
-				return vapi.NewErrorCategory(vapi.ErrMisconfigured, fmt.Errorf("writer option at index %d returned nil WriteFunc", index))
-			}
-			next = wrapped
+	next := w.writeArtifact
+	for index := len(allOptions) - 1; index >= 0; index-- {
+		option := allOptions[index]
+		if option == nil {
+			return vapi.NewErrorCategory(vapi.ErrMisconfigured, fmt.Errorf("nil writer option at index %d", index))
 		}
+		wrapped := option(next)
+		if wrapped == nil {
+			return vapi.NewErrorCategory(vapi.ErrMisconfigured, fmt.Errorf("writer option at index %d returned nil WriteFunc", index))
+		}
+		next = wrapped
 	}
 
 	return next(ctx, carrierWriter, artifact)
