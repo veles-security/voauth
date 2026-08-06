@@ -13,7 +13,8 @@ import (
 )
 
 type Reader struct {
-	tokenDecoder token.AnyTokenDecoder
+	tokenDecoder   token.AnyTokenDecoder
+	runtimeOptions []ReaderOption
 }
 
 type ReaderConfigOption func(*Reader) error
@@ -44,19 +45,23 @@ func NewReader(configOptions ...ReaderConfigOption) (*Reader, error) {
 
 // ReadArtifact implements [vapi.Reader].
 func (r *Reader) ReadArtifact(ctx context.Context, carrier *http.Request, options ...ReaderOption) (*ClientCredentials, error) {
-	if r == nil {
-		return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, errors.New("cannot read client credentials with nil reader"))
+	if r == nil || r.tokenDecoder == nil {
+		return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, errors.New("cannot read client credentials with invalid reader configuration"))
 	}
 	if carrier == nil {
 		return nil, vapi.NewErrorCategory(vapi.ErrMalformed, errors.New("cannot read client credentials from nil request"))
 	}
 
+	allOptions := make([]ReaderOption, 0, len(r.runtimeOptions)+len(options))
+	allOptions = append(allOptions, r.runtimeOptions...)
+	allOptions = append(allOptions, options...)
+
 	next := r.readArtifact
-	for index := len(options) - 1; index >= 0; index-- {
-		if options[index] == nil {
+	for index := len(allOptions) - 1; index >= 0; index-- {
+		if allOptions[index] == nil {
 			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, fmt.Errorf("nil reader option at index %d", index))
 		}
-		wrapped := options[index](next)
+		wrapped := allOptions[index](next)
 		if wrapped == nil {
 			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, fmt.Errorf("reader option at index %d returned nil ReadFunc", index))
 		}
@@ -86,9 +91,6 @@ func (r *Reader) readArtifact(ctx context.Context, carrier *http.Request) (*Clie
 		credentials.ClientId = carrier.PostForm.Get("client_id")
 		credentials.ClientSecret = carrier.PostForm.Get("client_secret")
 	default: // JWT client assertion methods share the same wire representation.
-		if r.tokenDecoder == nil {
-			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, errors.New("cannot read client assertion with nil token decoder"))
-		}
 		credentials.ClientId = carrier.PostForm.Get("client_id")
 		credentials.ClientAssertionType = carrier.PostForm.Get("client_assertion_type")
 		credentials.ClientAssertion, err = r.tokenDecoder.DecodeAnyToken(ctx, []byte(carrier.PostForm.Get("client_assertion")))

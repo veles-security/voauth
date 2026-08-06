@@ -10,11 +10,13 @@ import (
 	"strings"
 
 	"github.com/veles-security/vapi"
+	"github.com/veles-security/voauth/jwt"
 	"github.com/veles-security/voauth/token"
 )
 
 type Writer struct {
-	tokenEncoder token.AnyTokenEncoder
+	tokenEncoder   token.AnyTokenEncoder
+	runtimeOptions []WriterOption
 }
 
 type WriterConfigOption func(*Writer) error
@@ -33,18 +35,14 @@ func NewWriter(configOptions ...WriterConfigOption) (*Writer, error) {
 			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, err)
 		}
 	}
-	return writer, nil
-}
-
-// WithTokenEncoder configures the encoder used for client assertions.
-func WithTokenEncoder(encoder token.AnyTokenEncoder) WriterConfigOption {
-	return func(writer *Writer) error {
-		if encoder == nil {
-			return errors.New("nil token encoder")
+	if writer.tokenEncoder == nil {
+		encoder, err := jwt.NewEncoder()
+		if err != nil {
+			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, err)
 		}
 		writer.tokenEncoder = encoder
-		return nil
 	}
+	return writer, nil
 }
 
 // WriteArtifact implements [vapi.Writer].
@@ -58,13 +56,17 @@ func (w *Writer) WriteArtifact(ctx context.Context, carrier *http.Request, artif
 	if artifact == nil {
 		return vapi.NewErrorCategory(vapi.ErrMalformed, errors.New("cannot write nil client credentials"))
 	}
-	if artifact.ClientAssertion != nil && w.tokenEncoder == nil {
+	if w.tokenEncoder == nil {
 		return vapi.NewErrorCategory(vapi.ErrMisconfigured, errors.New("cannot write client assertion with nil token encoder"))
 	}
 
+	allOptions := make([]WriterOption, 0, len(w.runtimeOptions)+len(options))
+	allOptions = append(allOptions, w.runtimeOptions...)
+	allOptions = append(allOptions, options...)
+
 	next := w.writeArtifact
-	for index := len(options) - 1; index >= 0; index-- {
-		option := options[index]
+	for index := len(allOptions) - 1; index >= 0; index-- {
+		option := allOptions[index]
 		if option == nil {
 			return vapi.NewErrorCategory(vapi.ErrMisconfigured, fmt.Errorf("nil writer option at index %d", index))
 		}
@@ -90,6 +92,9 @@ func (w *Writer) writeArtifact(ctx context.Context, carrier *http.Request, artif
 		encoded, err := w.tokenEncoder.EncodeAnyToken(ctx, artifact.ClientAssertion)
 		if err != nil {
 			return vapi.NewErrorCategory(vapi.ErrMalformed, fmt.Errorf("encode client assertion: %w", err))
+		}
+		if encoded == nil {
+			return vapi.NewErrorCategory(vapi.ErrMalformed, errors.New("encode client assertion returned nil payload"))
 		}
 		form.Set("client_assertion_type", artifact.ClientAssertionType)
 		form.Set("client_assertion", string(encoded))
