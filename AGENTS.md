@@ -13,10 +13,14 @@ An option-bearing implementation must:
 - reject nil configuration options and categorize configuration failures with `vapi.NewErrorCategory(vapi.ErrMisconfigured, ...)`;
 - define a named runtime function type such as `DecodeFunc`, `EncodeFunc`, `ReadFunc`, or `WriteFunc`;
 - define runtime options as decorators of that function type, for example `type DecoderOption func(next DecodeFunc) DecodeFunc`;
+- store constructor-configured runtime options in a `runtimeOptions` field and apply them before the runtime options passed to the interface method, so per-call options can wrap or override the configured behavior;
+- provide a configuration option that sets those constructor-configured runtime options, such as `WithEncoderRuntimeOptions`;
 - build the runtime decorator chain in reverse order so options execute in caller-supplied order;
 - reject nil runtime options and decorators that return a nil function, including the option index in the error;
 - keep the undecorated operation in a private method such as `decode`, `encode`, `readArtifact`, or `writeArtifact`;
 - provide safe defaults for required collaborators in the constructor;
+- for each configurable dependency, provide configuration options both to inject the dependency directly and to construct it from that dependency's configuration options, as exemplified by `WithEncoderJwkEncoder` and `WithEncoderJwkEncoderOptions`;
+- prefix configuration-option names with the configured implementation type, for example `WithEncoder...` for `EncoderConfigOption`, including dependency and runtime-option configuration;
 - include a compile-time interface assertion;
 - perform thorough nil and invalid-state checks before dereferencing receivers, collaborators, carriers, payloads, or artifacts; and
 - wrap errors with useful operation context using `%w`, then categorize them with `vapi.NewErrorCategory` and the appropriate stable `vapi` error category.
