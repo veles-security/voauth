@@ -45,7 +45,7 @@ func TestNew(t *testing.T) {
 		{name: "requires issuer callback", assertions: assertMisconfigured},
 		{name: "accepts component options", options: []tokenendpoint.TokenEndpointConfigOption{
 			tokenendpoint.WithTokenRequestValidatorOption(tokenrequest.WithAllowedGrantTypes(tokenrequest.ClientCredentialsGrantType)),
-			tokenendpoint.WithClientCredentialsValidatorOption(clientcredentials.WithAllowedMethods(clientcredentials.ClientSecretPostAuthMethod)),
+			tokenendpoint.WithClientCredentialsValidatorOption(clientcredentials.WithValidatorAllowedMethods(clientcredentials.ClientSecretPostAuthMethod)),
 			tokenendpoint.WithIssuerOptionsCallback(func(context.Context, *tokenrequest.TokenRequest) ([]jwt.IssuerOption, error) { return nil, nil }),
 		}, assertions: assertCreated},
 		{name: "rejects nil endpoint option", options: []tokenendpoint.TokenEndpointConfigOption{nil}, assertions: assertMisconfigured},
@@ -53,7 +53,7 @@ func TestNew(t *testing.T) {
 			tokenendpoint.WithTokenRequestValidatorOption(tokenrequest.WithAllowedScopes()),
 		}, assertions: assertMisconfigured},
 		{name: "categorizes client credentials validator option failure", options: []tokenendpoint.TokenEndpointConfigOption{
-			tokenendpoint.WithClientCredentialsValidatorOption(clientcredentials.WithAllowedMethods()),
+			tokenendpoint.WithClientCredentialsValidatorOption(clientcredentials.WithValidatorAllowedMethods()),
 			tokenendpoint.WithIssuerOptionsCallback(func(context.Context, *tokenrequest.TokenRequest) ([]jwt.IssuerOption, error) { return nil, nil }),
 		}, assertions: assertMisconfigured},
 		{name: "rejects nil issuer callback", options: []tokenendpoint.TokenEndpointConfigOption{

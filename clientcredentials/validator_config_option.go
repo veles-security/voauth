@@ -5,8 +5,8 @@ import (
 	"fmt"
 )
 
-// WithAllowedMethods restricts the client authentication methods accepted by a Validator.
-func WithAllowedMethods(methods ...string) ValidatorConfigOption {
+// WithValidatorAllowedMethods restricts the client authentication methods accepted by a Validator.
+func WithValidatorAllowedMethods(methods ...string) ValidatorConfigOption {
 	return func(validator *Validator) error {
 		if len(methods) == 0 {
 			return errors.New("no allowed client authentication methods")
