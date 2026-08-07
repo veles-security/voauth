@@ -59,3 +59,14 @@ func WithClientCredentialsValidator(validator vapi.Validator[*clientcredentials.
 		return nil
 	}
 }
+
+func WithClientCredentialsValidatoOptions(options ...clientcredentials.ValidatorConfigOption) ValidatorConfigOption {
+	return func(tokenRequestValidator *Validator) error {
+		validator, err := clientcredentials.NewValidator(options...)
+		if err != nil {
+			return err
+		}
+		tokenRequestValidator.clientCredentialsValidator = validator
+		return nil
+	}
+}

@@ -6,55 +6,50 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"slices"
+	"strings"
 
 	"github.com/veles-security/vapi"
-	"github.com/veles-security/voauth/clientcredentials"
 	"github.com/veles-security/voauth/jwt"
 	"github.com/veles-security/voauth/tokenrequest"
 	"github.com/veles-security/voauth/tokenresponse"
 )
 
-// IssuerOptionsCallback derives the options used to issue an access token from
-// a validated token request. Authentication and authorization policy belong in
-// this callback.
-type IssuerOptionsCallback func(context.Context, *tokenrequest.TokenRequest) ([]jwt.IssuerOption, error)
+type IssuedToken string
 
-// TokenResponseCallback builds the successful token response after the access
-// token has been issued. It may add a refresh token, ID token, granted scopes,
-// resources, and other response metadata.
-type TokenResponseCallback func(context.Context, *tokenrequest.TokenRequest, *jwt.Token) (*tokenresponse.TokenResponse, error)
+const (
+	IssuedAccessToken  IssuedToken = "access_token"
+	IssuedRefreshToken IssuedToken = "refresh_token"
+	IssuedIDToken      IssuedToken = "id_token"
+)
 
-// TokenEndpointConfigOption configures a TokenEndpoint.
+// IssuerOptions contains the token-specific options prepared by application
+// policy for the configured tokens.
+type IssuerOptions struct {
+	AccessToken  []jwt.IssuerOption
+	RefreshToken []jwt.IssuerOption
+	IDToken      []jwt.IssuerOption
+}
+
+// IssuerOptionsCallback derives token-specific issue options from the token
+// subject and the authenticated token request.
+type IssuerOptionsCallback func(context.Context, vapi.ScopedPrincipal, *tokenrequest.TokenRequest) (IssuerOptions, error)
+
 type TokenEndpointConfigOption func(*TokenEndpoint) error
 
 // TokenEndpoint implements an OAuth 2.0 token endpoint HTTP handler.
 type TokenEndpoint struct {
-	requestReader                     *tokenrequest.Reader
-	requestReaderOptions              []tokenrequest.ReaderConfigOption
-	clientCredentialsValidator        *clientcredentials.Validator
-	clientCredentialsValidatorOptions []clientcredentials.ValidatorConfigOption
-	requestValidator                  *tokenrequest.Validator
-	requestValidatorOptions           []tokenrequest.ValidatorConfigOption
-	issuer                            *jwt.Issuer
-	issuerOptions                     []jwt.IssuerConfigOption
-	issuerOptionsCallback             IssuerOptionsCallback
-	responseWriter                    *tokenresponse.Writer
-	responseWriterOptions             []tokenresponse.WriterConfigOption
-	tokenResponseCallback             TokenResponseCallback
+	requestReader         *tokenrequest.Reader
+	requestReaderOptions  []tokenrequest.ReaderConfigOption
+	requestAuthenticator  vapi.Authenticator[*tokenrequest.TokenRequest]
+	issuer                vapi.Issuer[jwt.IssuerOption, *jwt.Token]
+	issuerOptionsCallback IssuerOptionsCallback
+	responseWriter        vapi.Writer[http.ResponseWriter, *tokenresponse.TokenResponse, tokenresponse.WriterOption]
+	issuedTokens          map[IssuedToken]struct{}
 }
 
-// New constructs a token endpoint and all of its dependent components.
+// New constructs a token endpoint and its configured components.
 func New(configOptions ...TokenEndpointConfigOption) (*TokenEndpoint, error) {
-	endpoint := &TokenEndpoint{
-		tokenResponseCallback: func(_ context.Context, request *tokenrequest.TokenRequest, accessToken *jwt.Token) (*tokenresponse.TokenResponse, error) {
-			return &tokenresponse.TokenResponse{
-				AccessToken: accessToken,
-				TokenType:   "Bearer",
-				Scope:       request.Scope,
-			}, nil
-		},
-	}
+	endpoint := &TokenEndpoint{issuedTokens: map[IssuedToken]struct{}{IssuedAccessToken: {}}}
 	for index, option := range configOptions {
 		if option == nil {
 			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, fmt.Errorf("nil token endpoint config option at index %d", index))
@@ -62,6 +57,9 @@ func New(configOptions ...TokenEndpointConfigOption) (*TokenEndpoint, error) {
 		if err := option(endpoint); err != nil {
 			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, fmt.Errorf("apply token endpoint config option at index %d: %w", index, err))
 		}
+	}
+	if endpoint.requestAuthenticator == nil {
+		return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, errors.New("missing token request authenticator"))
 	}
 	if endpoint.issuerOptionsCallback == nil {
 		return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, errors.New("missing issuer options callback"))
@@ -72,34 +70,25 @@ func New(configOptions ...TokenEndpointConfigOption) (*TokenEndpoint, error) {
 	if err != nil {
 		return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, fmt.Errorf("create token request reader: %w", err))
 	}
-	endpoint.clientCredentialsValidator, err = clientcredentials.NewValidator(endpoint.clientCredentialsValidatorOptions...)
-	if err != nil {
-		return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, fmt.Errorf("create client credentials validator: %w", err))
+	if endpoint.issuer == nil {
+		endpoint.issuer, err = jwt.NewIssuer()
+		if err != nil {
+			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, fmt.Errorf("create JWT issuer: %w", err))
+		}
 	}
-	requestValidatorOptions := append(
-		slices.Clone(endpoint.requestValidatorOptions),
-		tokenrequest.WithClientCredentialsValidator(endpoint.clientCredentialsValidator),
-	)
-	endpoint.requestValidator, err = tokenrequest.NewValidator(requestValidatorOptions...)
-	if err != nil {
-		return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, fmt.Errorf("create token request validator: %w", err))
+	if endpoint.responseWriter == nil {
+		endpoint.responseWriter, err = tokenresponse.NewWriter()
+		if err != nil {
+			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, fmt.Errorf("create token response writer: %w", err))
+		}
 	}
-	endpoint.issuer, err = jwt.NewIssuer(endpoint.issuerOptions...)
-	if err != nil {
-		return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, fmt.Errorf("create JWT issuer: %w", err))
-	}
-	endpoint.responseWriter, err = tokenresponse.NewWriter(endpoint.responseWriterOptions...)
-	if err != nil {
-		return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, fmt.Errorf("create token response writer: %w", err))
-	}
-
 	return endpoint, nil
 }
 
-// ServeHTTP reads and validates a token request, applies application policy,
-// issues an access token, and writes an OAuth token response.
+// ServeHTTP authenticates a token request, issues the configured tokens for
+// its scoped subject, and writes the OAuth token response.
 func (e *TokenEndpoint) ServeHTTP(response http.ResponseWriter, request *http.Request) {
-	if e == nil || e.requestReader == nil || e.requestValidator == nil || e.issuer == nil || e.responseWriter == nil || e.issuerOptionsCallback == nil || e.tokenResponseCallback == nil {
+	if e == nil || e.requestReader == nil || e.requestAuthenticator == nil || e.issuer == nil || e.responseWriter == nil || e.issuerOptionsCallback == nil || len(e.issuedTokens) == 0 {
 		http.Error(response, "internal server error", http.StatusInternalServerError)
 		return
 	}
@@ -118,38 +107,55 @@ func (e *TokenEndpoint) ServeHTTP(response http.ResponseWriter, request *http.Re
 		e.handleError(response, err)
 		return
 	}
-	err = e.requestValidator.Validate(request.Context(), tokenRequest)
+	principal, err := e.requestAuthenticator.Authenticate(request.Context(), tokenRequest)
+	if err != nil {
+		e.handleError(response, err)
+		return
+	}
+	scopedPrincipal, ok := principal.(vapi.ScopedPrincipal)
+	if !ok {
+		e.handleError(response, vapi.NewErrorCategory(vapi.ErrPolicyRejected, fmt.Errorf("token request authenticator returned non-scoped principal of type %T", principal)))
+		return
+	}
+	issuerOptions, err := e.issuerOptionsCallback(request.Context(), scopedPrincipal, tokenRequest)
 	if err != nil {
 		e.handleError(response, err)
 		return
 	}
 
-	issuerOptions, err := e.issuerOptionsCallback(request.Context(), tokenRequest)
-	if err != nil {
-		e.handleError(response, err)
-		return
+	tokenResponse := &tokenresponse.TokenResponse{
+		TokenType: "Bearer",
+		Scope:     strings.Join(scopedPrincipal.GrantedScopes(), " "),
 	}
-
-	accessToken, err := e.issuer.Issue(request.Context(), issuerOptions...)
-	if err != nil {
-		e.handleError(response, err)
-		return
+	if _, issue := e.issuedTokens[IssuedAccessToken]; issue {
+		options := append([]jwt.IssuerOption(nil), issuerOptions.AccessToken...)
+		options = append(options, jwt.WithPrincipal(scopedPrincipal))
+		tokenResponse.AccessToken, err = e.issuer.Issue(request.Context(), options...)
+		if err != nil {
+			e.handleError(response, fmt.Errorf("issue access token: %w", err))
+			return
+		}
 	}
-
-	tokenResponse, err := e.tokenResponseCallback(request.Context(), tokenRequest, accessToken)
-	if err != nil {
-		e.handleError(response, err)
-		return
-	} else if tokenResponse == nil {
-		err = vapi.NewErrorCategory(vapi.ErrInternal, errors.New("token response callback returned nil response"))
-		e.handleError(response, err)
-		return
+	if _, issue := e.issuedTokens[IssuedRefreshToken]; issue {
+		options := append([]jwt.IssuerOption(nil), issuerOptions.RefreshToken...)
+		options = append(options, jwt.WithPrincipal(scopedPrincipal))
+		tokenResponse.RefreshToken, err = e.issuer.Issue(request.Context(), options...)
+		if err != nil {
+			e.handleError(response, fmt.Errorf("issue refresh token: %w", err))
+			return
+		}
 	}
-
-	err = e.responseWriter.WriteArtifact(request.Context(), response, tokenResponse)
-	if err != nil {
+	if _, issue := e.issuedTokens[IssuedIDToken]; issue {
+		options := append([]jwt.IssuerOption(nil), issuerOptions.IDToken...)
+		options = append(options, jwt.WithPrincipal(scopedPrincipal))
+		tokenResponse.IdToken, err = e.issuer.Issue(request.Context(), options...)
+		if err != nil {
+			e.handleError(response, fmt.Errorf("issue ID token: %w", err))
+			return
+		}
+	}
+	if err := e.responseWriter.WriteArtifact(request.Context(), response, tokenResponse); err != nil {
 		e.handleError(response, err)
-		return
 	}
 }
 

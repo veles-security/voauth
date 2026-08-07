@@ -50,8 +50,8 @@ func (e *Encoder) Encode(ctx context.Context, artifact *TokenResponse, options .
 	if artifact == nil {
 		return nil, vapi.NewErrorCategory(vapi.ErrMalformed, errors.New("cannot encode nil token response"))
 	}
-	if artifact.AccessToken == nil {
-		return nil, vapi.NewErrorCategory(vapi.ErrMalformed, errors.New("cannot encode token response with nil access token"))
+	if artifact.AccessToken == nil && artifact.RefreshToken == nil && artifact.IdToken == nil {
+		return nil, vapi.NewErrorCategory(vapi.ErrMalformed, errors.New("cannot encode token response without a token"))
 	}
 
 	representation := &TokenResponseRepresentation{}
