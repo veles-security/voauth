@@ -19,10 +19,23 @@ func WithAuthenticatorReader(reader vapi.Reader[*http.Request, *Token, ReaderOpt
 }
 
 // WithAuthenticatorValidator configures the JWT token validator.
-func WithAuthenticatorValidator(validator vapi.Validator[*Token, ValidationPolicer]) AuthenticatorConfigOption {
+func WithAuthenticatorValidator(validator vapi.Validator[*Token, ValidatorOption]) AuthenticatorConfigOption {
 	return func(authenticator *Authenticator) error {
 		if validator == nil {
 			return errors.New("nil JWT token validator")
+		}
+		authenticator.validator = validator
+		return nil
+	}
+}
+
+// WithAuthenticatorValidatorOptions configures the JWT token validator by
+// constructing it with the provided validator configuration options.
+func WithAuthenticatorValidatorOptions(options ...ValidatorConfigOption) AuthenticatorConfigOption {
+	return func(authenticator *Authenticator) error {
+		validator, err := NewValidator(options...)
+		if err != nil {
+			return err
 		}
 		authenticator.validator = validator
 		return nil

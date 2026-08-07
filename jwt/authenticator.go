@@ -10,7 +10,7 @@ import (
 
 type Authenticator struct {
 	reader    vapi.Reader[*http.Request, *Token, ReaderOption]
-	validator vapi.Validator[*Token, ValidationPolicer]
+	validator vapi.Validator[*Token, ValidatorOption]
 	extractor vapi.PrincipalExtractor[*Token, JwtPrincipalMapper]
 }
 
@@ -34,7 +34,11 @@ func NewAuthenticator(configOptions ...AuthenticatorConfigOption) (*Authenticato
 		authenticator.reader = reader
 	}
 	if authenticator.validator == nil {
-		return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, errors.New("nil JWT token validator"))
+		validator, err := NewValidator()
+		if err != nil {
+			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, err)
+		}
+		authenticator.validator = validator
 	}
 	if authenticator.extractor == nil {
 		return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, errors.New("nil JWT principal extractor"))

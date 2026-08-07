@@ -10,7 +10,8 @@ import (
 )
 
 type Writer struct {
-	encoder vapi.Encoder[*Token, EncoderOption]
+	encoder        vapi.Encoder[*Token, EncoderOption]
+	runtimeOptions []WriterOption
 }
 
 type WriterConfigOption func(*Writer) error
@@ -39,17 +40,6 @@ func NewWriter(configOptions ...WriterConfigOption) (*Writer, error) {
 	return writer, nil
 }
 
-// WithEncoder configures the encoder used to encode JWTs.
-func WithEncoder(encoder vapi.Encoder[*Token, EncoderOption]) WriterConfigOption {
-	return func(writer *Writer) error {
-		if encoder == nil {
-			return errors.New("nil JWT encoder")
-		}
-		writer.encoder = encoder
-		return nil
-	}
-}
-
 // WriteArtifact implements [vapi.Writer].
 func (w *Writer) WriteArtifact(ctx context.Context, carrier *http.Request, artifact *Token, options ...WriterOption) error {
 	if w == nil || w.encoder == nil {
@@ -62,9 +52,13 @@ func (w *Writer) WriteArtifact(ctx context.Context, carrier *http.Request, artif
 		return vapi.NewErrorCategory(vapi.ErrMalformed, errors.New("cannot write nil JWT"))
 	}
 
+	allOptions := make([]WriterOption, 0, len(w.runtimeOptions)+len(options))
+	allOptions = append(allOptions, w.runtimeOptions...)
+	allOptions = append(allOptions, options...)
+
 	next := w.writeArtifact
-	for index := len(options) - 1; index >= 0; index-- {
-		option := options[index]
+	for index := len(allOptions) - 1; index >= 0; index-- {
+		option := allOptions[index]
 		if option == nil {
 			return vapi.NewErrorCategory(vapi.ErrMisconfigured, fmt.Errorf("nil writer option at index %d", index))
 		}

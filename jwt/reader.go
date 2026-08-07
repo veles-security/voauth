@@ -11,7 +11,8 @@ import (
 )
 
 type Reader struct {
-	decoder vapi.Decoder[*Token, DecoderOption]
+	decoder        vapi.Decoder[*Token, DecoderOption]
+	runtimeOptions []ReaderOption
 }
 
 type ReaderConfigOption func(*Reader) error
@@ -40,17 +41,6 @@ func NewReader(configOptions ...ReaderConfigOption) (*Reader, error) {
 	return reader, nil
 }
 
-// WithDecoder configures the decoder used to decode JWTs.
-func WithDecoder(decoder vapi.Decoder[*Token, DecoderOption]) ReaderConfigOption {
-	return func(reader *Reader) error {
-		if decoder == nil {
-			return errors.New("nil JWT decoder")
-		}
-		reader.decoder = decoder
-		return nil
-	}
-}
-
 // ReadArtifact implements [vapi.Reader].
 func (r *Reader) ReadArtifact(ctx context.Context, carrier *http.Request, options ...ReaderOption) (*Token, error) {
 	if r == nil || r.decoder == nil {
@@ -60,9 +50,13 @@ func (r *Reader) ReadArtifact(ctx context.Context, carrier *http.Request, option
 		return nil, vapi.NewErrorCategory(vapi.ErrMalformed, errors.New("cannot read JWT from nil request"))
 	}
 
+	allOptions := make([]ReaderOption, 0, len(r.runtimeOptions)+len(options))
+	allOptions = append(allOptions, r.runtimeOptions...)
+	allOptions = append(allOptions, options...)
+
 	next := r.readArtifact
-	for index := len(options) - 1; index >= 0; index-- {
-		option := options[index]
+	for index := len(allOptions) - 1; index >= 0; index-- {
+		option := allOptions[index]
 		if option == nil {
 			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, fmt.Errorf("nil reader option at index %d", index))
 		}
