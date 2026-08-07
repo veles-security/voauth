@@ -128,8 +128,8 @@ func (e *TokenEndpoint) ServeHTTP(response http.ResponseWriter, request *http.Re
 		Scope:     strings.Join(scopedPrincipal.GrantedScopes(), " "),
 	}
 	if _, issue := e.issuedTokens[IssuedAccessToken]; issue {
-		options := append([]jwt.IssuerOption(nil), issuerOptions.AccessToken...)
-		options = append(options, jwt.WithPrincipal(scopedPrincipal))
+		options := []jwt.IssuerOption{jwt.WithPrincipal(scopedPrincipal)}
+		options = append(options, issuerOptions.AccessToken...)
 		tokenResponse.AccessToken, err = e.issuer.Issue(request.Context(), options...)
 		if err != nil {
 			e.handleError(response, fmt.Errorf("issue access token: %w", err))
@@ -137,8 +137,8 @@ func (e *TokenEndpoint) ServeHTTP(response http.ResponseWriter, request *http.Re
 		}
 	}
 	if _, issue := e.issuedTokens[IssuedRefreshToken]; issue {
-		options := append([]jwt.IssuerOption(nil), issuerOptions.RefreshToken...)
-		options = append(options, jwt.WithPrincipal(scopedPrincipal))
+		options := []jwt.IssuerOption{jwt.WithPrincipal(scopedPrincipal)}
+		options = append(options, issuerOptions.RefreshToken...)
 		tokenResponse.RefreshToken, err = e.issuer.Issue(request.Context(), options...)
 		if err != nil {
 			e.handleError(response, fmt.Errorf("issue refresh token: %w", err))
@@ -146,8 +146,8 @@ func (e *TokenEndpoint) ServeHTTP(response http.ResponseWriter, request *http.Re
 		}
 	}
 	if _, issue := e.issuedTokens[IssuedIDToken]; issue {
-		options := append([]jwt.IssuerOption(nil), issuerOptions.IDToken...)
-		options = append(options, jwt.WithPrincipal(scopedPrincipal))
+		options := []jwt.IssuerOption{jwt.WithPrincipal(scopedPrincipal)}
+		options = append(options, issuerOptions.IDToken...)
 		tokenResponse.IdToken, err = e.issuer.Issue(request.Context(), options...)
 		if err != nil {
 			e.handleError(response, fmt.Errorf("issue ID token: %w", err))
