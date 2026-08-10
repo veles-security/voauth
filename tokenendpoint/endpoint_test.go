@@ -37,8 +37,10 @@ func TestNew(t *testing.T) {
 	callback := tokenendpoint.IssuerOptionsCallback(func(context.Context, vapi.ScopedPrincipal, *tokenrequest.TokenRequest) (tokenendpoint.IssuerOptions, error) {
 		return tokenendpoint.IssuerOptions{}, nil
 	})
-	grantCallback := tokenrequest.AuthCallback(func(context.Context, *tokenrequest.TokenRequest, vapi.Principal) (vapi.Principal, error) {
-		return principal, nil
+	grantResolverOption := tokenrequest.ResolverOption(func(_ tokenrequest.ResolveFunc) tokenrequest.ResolveFunc {
+		return func(_ context.Context, _ *tokenrequest.TokenRequest, _ vapi.Principal) (vapi.Principal, error) {
+			return principal, nil
+		}
 	})
 	issuer, err := jwt.NewIssuer()
 	if err != nil {
@@ -65,7 +67,7 @@ func TestNew(t *testing.T) {
 	}{
 		{name: "direct bindings", options: []tokenendpoint.TokenEndpointConfigOption{tokenendpoint.WithTokenRequestAuthenticator(authenticator), tokenendpoint.WithIssuer(issuer), tokenendpoint.WithTokenResponseWriter(writer), tokenendpoint.WithIssuerOptionsCallback(callback)}, assert: assertCreated},
 		{name: "configured bindings", options: []tokenendpoint.TokenEndpointConfigOption{
-			tokenendpoint.WithTokenRequestAuthenticatorOptions(tokenrequest.WithAuthenticatorResolverOptions(tokenrequest.WithResolverAuthCallback(tokenrequest.PasswordGrantType, grantCallback))),
+			tokenendpoint.WithTokenRequestAuthenticatorOptions(tokenrequest.WithAuthenticatorResolverOptions(tokenrequest.WithResolverRuntimeOptions(grantResolverOption))),
 			tokenendpoint.WithIssuerOptions(),
 			tokenendpoint.WithTokenResponseWriterOptions(),
 			tokenendpoint.WithIssuedTokens(tokenendpoint.IssuedAccessToken, tokenendpoint.IssuedRefreshToken, tokenendpoint.IssuedIDToken),

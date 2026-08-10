@@ -10,23 +10,18 @@ import (
 )
 
 type Resolver struct {
-	authCallbacks  map[string]AuthCallback
 	clientResolver vapi.Resolver[*clientcredentials.ClientCredentials, clientcredentials.ResolverOption]
 	runtimeOptions []ResolverOption
 }
 
 type ResolverConfigOption func(*Resolver) error
 
-type ResolveFunc func(ctx context.Context, artifact *TokenRequest) (vapi.Principal, error)
+type ResolveFunc func(ctx context.Context, artifact *TokenRequest, clientPrincipal vapi.Principal) (vapi.Principal, error)
 
 type ResolverOption func(next ResolveFunc) ResolveFunc
 
-// AuthCallback resolves the principal for a grant type after the client has
-// been resolved.
-type AuthCallback func(ctx context.Context, request *TokenRequest, clientPrincipal vapi.Principal) (vapi.Principal, error)
-
 func NewResolver(configOptions ...ResolverConfigOption) (*Resolver, error) {
-	resolver := &Resolver{authCallbacks: make(map[string]AuthCallback)}
+	resolver := &Resolver{}
 	for _, option := range configOptions {
 		if option == nil {
 			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, errors.New("nil resolver config option"))
@@ -47,7 +42,7 @@ func NewResolver(configOptions ...ResolverConfigOption) (*Resolver, error) {
 
 // Resolve implements [vapi.Resolver].
 func (r *Resolver) Resolve(ctx context.Context, artifact *TokenRequest, options ...ResolverOption) (vapi.Principal, error) {
-	if r == nil || r.authCallbacks == nil || r.clientResolver == nil {
+	if r == nil || r.clientResolver == nil {
 		return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, errors.New("cannot resolve token request with invalid resolver configuration"))
 	}
 	if artifact == nil {
@@ -70,10 +65,6 @@ func (r *Resolver) Resolve(ctx context.Context, artifact *TokenRequest, options 
 		}
 		next = wrapped
 	}
-	return next(ctx, artifact)
-}
-
-func (r *Resolver) resolve(ctx context.Context, artifact *TokenRequest) (vapi.Principal, error) {
 	clientPrincipal, err := r.clientResolver.Resolve(ctx, &artifact.ClientCredentials)
 	if err != nil {
 		return nil, fmt.Errorf("resolve client credentials: %w", err)
@@ -81,22 +72,11 @@ func (r *Resolver) resolve(ctx context.Context, artifact *TokenRequest) (vapi.Pr
 	if clientPrincipal == nil {
 		return nil, vapi.NewErrorCategory(vapi.ErrUnauthenticated, errors.New("client credentials resolver returned nil principal"))
 	}
+	return next(ctx, artifact, clientPrincipal)
+}
 
-	callback, ok := r.authCallbacks[artifact.GrantType]
-	if !ok {
-		if artifact.GrantType == ClientCredentialsGrantType {
-			return clientPrincipal, nil
-		}
-		return nil, vapi.NewErrorCategory(vapi.ErrUnauthenticated, fmt.Errorf("no resolver callback for grant type %q", artifact.GrantType))
-	}
-	principal, err := callback(ctx, artifact, clientPrincipal)
-	if err != nil {
-		return nil, fmt.Errorf("resolve token request for grant type %q: %w", artifact.GrantType, err)
-	}
-	if principal == nil {
-		return nil, vapi.NewErrorCategory(vapi.ErrUnauthenticated, fmt.Errorf("resolver callback for grant type %q returned nil principal", artifact.GrantType))
-	}
-	return principal, nil
+func (r *Resolver) resolve(_ context.Context, _ *TokenRequest, clientPrincipal vapi.Principal) (vapi.Principal, error) {
+	return clientPrincipal, nil
 }
 
 var _ vapi.Resolver[*TokenRequest, ResolverOption] = &Resolver{}

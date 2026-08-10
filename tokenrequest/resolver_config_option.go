@@ -2,7 +2,6 @@ package tokenrequest
 
 import (
 	"errors"
-	"fmt"
 
 	"github.com/veles-security/vapi"
 	"github.com/veles-security/voauth/clientcredentials"
@@ -11,19 +10,6 @@ import (
 func WithResolverRuntimeOptions(options ...ResolverOption) ResolverConfigOption {
 	return func(resolver *Resolver) error {
 		resolver.runtimeOptions = append([]ResolverOption(nil), options...)
-		return nil
-	}
-}
-
-func WithResolverAuthCallback(grantType string, callback AuthCallback) ResolverConfigOption {
-	return func(resolver *Resolver) error {
-		if grantType == "" {
-			return errors.New("empty grant type")
-		}
-		if callback == nil {
-			return fmt.Errorf("nil resolver callback for grant type %q", grantType)
-		}
-		resolver.authCallbacks[grantType] = callback
 		return nil
 	}
 }

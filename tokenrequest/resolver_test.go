@@ -31,25 +31,32 @@ func TestResolver_Resolve(t *testing.T) {
 	want := sub.NewBasePrincipal("issuer", "user-1", "user")
 	failure := errors.New("failure")
 	order := []string{}
-	callback := tokenrequest.AuthCallback(func(context.Context, *tokenrequest.TokenRequest, vapi.Principal) (vapi.Principal, error) {
-		order = append(order, "grant")
-		return want, nil
+	grantOption := tokenrequest.ResolverOption(func(next tokenrequest.ResolveFunc) tokenrequest.ResolveFunc {
+		return func(ctx context.Context, request *tokenrequest.TokenRequest, clientPrincipal vapi.Principal) (vapi.Principal, error) {
+			if request.GrantType != tokenrequest.PasswordGrantType {
+				return next(ctx, request, clientPrincipal)
+			}
+			order = append(order, "grant")
+			return want, nil
+		}
 	})
 	valid, err := tokenrequest.NewResolver(
 		tokenrequest.WithResolverClientResolver(&clientResolverStub{principal: clientPrincipal, order: &order}),
-		tokenrequest.WithResolverAuthCallback(tokenrequest.PasswordGrantType, callback),
+		tokenrequest.WithResolverRuntimeOptions(grantOption),
 	)
 	if err != nil {
 		t.Fatal(err)
 	}
 	clientOnly, _ := tokenrequest.NewResolver(tokenrequest.WithResolverClientResolver(&clientResolverStub{principal: clientPrincipal}))
-	clientFails, _ := tokenrequest.NewResolver(tokenrequest.WithResolverClientResolver(&clientResolverStub{err: failure}), tokenrequest.WithResolverAuthCallback(tokenrequest.PasswordGrantType, callback))
-	callbackFails, _ := tokenrequest.NewResolver(tokenrequest.WithResolverClientResolver(&clientResolverStub{principal: clientPrincipal}), tokenrequest.WithResolverAuthCallback(tokenrequest.PasswordGrantType, func(context.Context, *tokenrequest.TokenRequest, vapi.Principal) (vapi.Principal, error) {
-		return nil, failure
-	}))
-	callbackNil, _ := tokenrequest.NewResolver(tokenrequest.WithResolverClientResolver(&clientResolverStub{principal: clientPrincipal}), tokenrequest.WithResolverAuthCallback(tokenrequest.PasswordGrantType, func(context.Context, *tokenrequest.TokenRequest, vapi.Principal) (vapi.Principal, error) {
-		return nil, nil
-	}))
+	clientFails, _ := tokenrequest.NewResolver(tokenrequest.WithResolverClientResolver(&clientResolverStub{err: failure}), tokenrequest.WithResolverRuntimeOptions(grantOption))
+	failingOption := tokenrequest.ResolverOption(func(next tokenrequest.ResolveFunc) tokenrequest.ResolveFunc {
+		return func(ctx context.Context, request *tokenrequest.TokenRequest, clientPrincipal vapi.Principal) (vapi.Principal, error) {
+			if _, err := next(ctx, request, clientPrincipal); err != nil {
+				return nil, err
+			}
+			return nil, failure
+		}
+	})
 
 	assertPrincipal := func(expected vapi.Principal) func(*testing.T, vapi.Principal, error) {
 		return func(t *testing.T, got vapi.Principal, err error) {
@@ -74,10 +81,9 @@ func TestResolver_Resolve(t *testing.T) {
 	}{
 		{name: "client then grant", resolver: valid, artifact: request, assert: assertPrincipal(want)},
 		{name: "client credentials principal", resolver: clientOnly, artifact: &tokenrequest.TokenRequest{GrantType: tokenrequest.ClientCredentialsGrantType}, assert: assertPrincipal(clientPrincipal)},
-		{name: "missing callback", resolver: clientOnly, artifact: request, assert: assertError(vapi.ErrUnauthenticated)},
+		{name: "no grant option returns client principal", resolver: clientOnly, artifact: request, assert: assertPrincipal(clientPrincipal)},
 		{name: "client failure", resolver: clientFails, artifact: request, assert: assertError(failure)},
-		{name: "callback failure", resolver: callbackFails, artifact: request, assert: assertError(failure)},
-		{name: "callback returns nil", resolver: callbackNil, artifact: request, assert: assertError(vapi.ErrUnauthenticated)},
+		{name: "per-call option failure", resolver: clientOnly, artifact: request, options: []tokenrequest.ResolverOption{failingOption}, assert: assertError(failure)},
 		{name: "nil artifact", resolver: valid, assert: assertError(vapi.ErrMalformed)},
 		{name: "nil receiver", artifact: request, assert: assertError(vapi.ErrMisconfigured)},
 		{name: "nil runtime option", resolver: valid, artifact: request, options: []tokenrequest.ResolverOption{nil}, assert: assertError(vapi.ErrMisconfigured)},
@@ -107,10 +113,6 @@ func TestNewResolver(t *testing.T) {
 		{name: "defaults"},
 		{name: "client resolver options", options: []tokenrequest.ResolverConfigOption{tokenrequest.WithResolverClientResolverOptions(clientcredentials.WithResolverRuntimeOptions(clientcredentials.WithResolverAuthenticationMethod(clientcredentials.ClientSecretPostAuthMethod, callback)))}},
 		{name: "nil option", options: []tokenrequest.ResolverConfigOption{nil}, wantErr: true},
-		{name: "empty grant type", options: []tokenrequest.ResolverConfigOption{tokenrequest.WithResolverAuthCallback("", func(context.Context, *tokenrequest.TokenRequest, vapi.Principal) (vapi.Principal, error) {
-			return nil, nil
-		})}, wantErr: true},
-		{name: "nil callback", options: []tokenrequest.ResolverConfigOption{tokenrequest.WithResolverAuthCallback(tokenrequest.PasswordGrantType, nil)}, wantErr: true},
 		{name: "nil client resolver", options: []tokenrequest.ResolverConfigOption{tokenrequest.WithResolverClientResolver(nil)}, wantErr: true},
 		{name: "invalid client resolver options", options: []tokenrequest.ResolverConfigOption{tokenrequest.WithResolverClientResolverOptions(nil)}, wantErr: true},
 	}
