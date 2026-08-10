@@ -15,7 +15,8 @@ import (
 )
 
 type Issuer struct {
-	signer *sig.Signer
+	signer         *sig.Signer
+	runtimeOptions []IssuerOption
 }
 
 type IssuerConfigOption func(*Issuer) error
@@ -44,9 +45,13 @@ func (j *Issuer) Issue(ctx context.Context, options ...IssuerOption) (*Token, er
 	}
 	token := &Token{iat: time.Now(), Header: map[string]string{}, Claims: make(Cliams)}
 
+	allOptions := make([]IssuerOption, 0, len(j.runtimeOptions)+len(options))
+	allOptions = append(allOptions, j.runtimeOptions...)
+	allOptions = append(allOptions, options...)
+
 	next := j.issue
-	for index := len(options) - 1; index >= 0; index-- {
-		option := options[index]
+	for index := len(allOptions) - 1; index >= 0; index-- {
+		option := allOptions[index]
 		if option == nil {
 			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, fmt.Errorf("nil issuer option at index %d", index))
 		}

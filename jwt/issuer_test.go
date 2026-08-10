@@ -50,6 +50,10 @@ func TestIssuer_Issue(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	runtimeOptionsIssuer, err := NewIssuer(WithIssuerRuntimeOptions(WithClaims(Cliams{"source": "configured", "configured": true})))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	tests := []struct {
 		name       string
@@ -117,6 +121,19 @@ func TestIssuer_Issue(t *testing.T) {
 				}
 				if !strings.HasSuffix(string(encoded), ".") {
 					t.Fatalf("unsigned compact JWT %q does not have an empty signature", encoded)
+				}
+			},
+		},
+		{
+			name:    "applies configured options before per-call options",
+			issuer:  runtimeOptionsIssuer,
+			options: []IssuerOption{WithClaims(Cliams{"source": "per-call"})},
+			assertions: func(t *testing.T, token *Token, err error) {
+				if err != nil {
+					t.Fatal(err)
+				}
+				if token.Claims["configured"] != true || token.Claims["source"] != "per-call" {
+					t.Fatalf("unexpected claims: %#v", token.Claims)
 				}
 			},
 		},
