@@ -55,6 +55,8 @@ func (a *Authenticator) Authenticate(ctx context.Context, request *http.Request)
 	if a == nil || a.reader == nil || a.validator == nil || a.resolver == nil {
 		return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, errors.New("cannot authenticate client credentials with invalid authenticator configuration"))
 	}
+
+	// Read
 	credentials, err := a.reader.ReadArtifact(ctx, request)
 	if err != nil {
 		if errors.Is(err, vapi.ErrNotApplicable) {
@@ -62,13 +64,18 @@ func (a *Authenticator) Authenticate(ctx context.Context, request *http.Request)
 		}
 		return nil, vapi.NewErrorCategory(vapi.ErrUnauthenticated, err)
 	}
+
+	// Validate
 	if err := a.validator.Validate(ctx, credentials); err != nil {
 		return nil, vapi.NewErrorCategory(vapi.ErrUnauthenticated, err)
 	}
+
+	// Decode
 	principal, err := a.resolver.Resolve(ctx, credentials)
 	if err != nil {
 		return nil, vapi.NewErrorCategory(vapi.ErrUnauthenticated, err)
 	}
+
 	if principal == nil {
 		return nil, vapi.NewErrorCategory(vapi.ErrUnauthenticated, errors.New("client credentials resolver returned nil principal"))
 	}

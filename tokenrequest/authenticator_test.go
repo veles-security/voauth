@@ -3,76 +3,65 @@ package tokenrequest_test
 import (
 	"context"
 	"errors"
+	"net/http"
 	"reflect"
 	"testing"
 
 	"github.com/veles-security/vapi"
 	"github.com/veles-security/vapi/sub"
-	"github.com/veles-security/voauth/clientcredentials"
 	"github.com/veles-security/voauth/tokenrequest"
 )
+
+type tokenRequestReaderStub struct {
+	artifact *tokenrequest.TokenRequest
+	err      error
+	order    *[]string
+}
+
+func (s *tokenRequestReaderStub) ReadArtifact(context.Context, *http.Request, ...tokenrequest.ReaderOption) (*tokenrequest.TokenRequest, error) {
+	if s.order != nil {
+		*s.order = append(*s.order, "read")
+	}
+	return s.artifact, s.err
+}
 
 type tokenRequestValidatorStub struct {
 	err   error
 	order *[]string
 }
 
-func (v *tokenRequestValidatorStub) Validate(context.Context, *tokenrequest.TokenRequest, ...tokenrequest.ValidatorOption) error {
-	if v.order != nil {
-		*v.order = append(*v.order, "validate")
+func (s *tokenRequestValidatorStub) Validate(context.Context, *tokenrequest.TokenRequest, ...tokenrequest.ValidatorOption) error {
+	if s.order != nil {
+		*s.order = append(*s.order, "validate")
 	}
-	return v.err
+	return s.err
 }
 
-type clientResolverStub struct {
+type tokenRequestResolverStub struct {
 	principal vapi.Principal
 	err       error
 	order     *[]string
 }
 
-func (a *clientResolverStub) Resolve(context.Context, *clientcredentials.ClientCredentials, ...clientcredentials.ResolverOption) (vapi.Principal, error) {
-	if a.order != nil {
-		*a.order = append(*a.order, "client")
+func (s *tokenRequestResolverStub) Resolve(context.Context, *tokenrequest.TokenRequest, ...tokenrequest.ResolverOption) (vapi.Principal, error) {
+	if s.order != nil {
+		*s.order = append(*s.order, "resolve")
 	}
-	return a.principal, a.err
+	return s.principal, s.err
 }
 
 func TestAuthenticator_Authenticate(t *testing.T) {
-	request := &tokenrequest.TokenRequest{
-		GrantType: tokenrequest.PasswordGrantType,
-		ClientCredentials: clientcredentials.ClientCredentials{
-			AuthMethod: clientcredentials.ClientSecretPostAuthMethod,
-			ClientId:   "client-1",
-		},
-		Username: "user-1",
-		Password: "secret",
-		Scope:    "read write",
-	}
-	clientPrincipal := sub.NewBasePrincipal("clients", "client-1", "service")
-	wantPrincipal := sub.NewBasePrincipal("issuer", "user-1", "user").WithGrantedScopes("read", "write")
-	validationFailure := errors.New("invalid token request")
-	clientFailure := errors.New("invalid client")
-	callbackFailure := errors.New("invalid resource owner")
-
+	requestArtifact := &tokenrequest.TokenRequest{GrantType: tokenrequest.ClientCredentialsGrantType}
+	want := sub.NewBasePrincipal("clients", "client-1", "service")
+	failure := errors.New("failure")
 	assertAuthenticated := func(t *testing.T, got vapi.Principal, err error) {
-		if err != nil {
-			t.Fatalf("Authenticate() failed: %v", err)
-		}
-		if !reflect.DeepEqual(got, wantPrincipal) {
-			t.Errorf("Authenticate() principal = %#v, want %#v", got, wantPrincipal)
-		}
-		if _, ok := got.(vapi.ScopedPrincipal); !ok {
-			t.Errorf("Authenticate() principal type = %T, want vapi.ScopedPrincipal", got)
+		if err != nil || got != want {
+			t.Fatalf("Authenticate() = (%#v, %v), want (%#v, nil)", got, err, want)
 		}
 	}
-	assertClient := func(t *testing.T, got vapi.Principal, err error) {
-		if err != nil || got != clientPrincipal {
-			t.Fatalf("Authenticate() = (%#v, %v), want client principal", got, err)
-		}
-	}
-	assertMalformed := func(t *testing.T, got vapi.Principal, err error) {
-		if got != nil || !errors.Is(err, vapi.ErrMalformed) {
-			t.Fatalf("Authenticate() = (%#v, %v), want (nil, %v)", got, err, vapi.ErrMalformed)
+	assertUnauthenticated := func(t *testing.T, got vapi.Principal, err error) {
+		if got != nil || !errors.Is(err, vapi.ErrUnauthenticated) {
+			t.Fatalf("Authenticate() = (%#v, %v), want (nil, %v)", got, err, vapi.ErrUnauthenticated)
 		}
 	}
 	assertMisconfigured := func(t *testing.T, got vapi.Principal, err error) {
@@ -80,95 +69,62 @@ func TestAuthenticator_Authenticate(t *testing.T) {
 			t.Fatalf("Authenticate() = (%#v, %v), want (nil, %v)", got, err, vapi.ErrMisconfigured)
 		}
 	}
-	assertUnauthenticated := func(cause error) func(*testing.T, vapi.Principal, error) {
-		return func(t *testing.T, got vapi.Principal, err error) {
-			if got != nil || !errors.Is(err, vapi.ErrUnauthenticated) {
-				t.Fatalf("Authenticate() = (%#v, %v), want (nil, %v)", got, err, vapi.ErrUnauthenticated)
-			}
-			if cause != nil && !errors.Is(err, cause) {
-				t.Errorf("Authenticate() error = %v, want preserved cause %v", err, cause)
-			}
-		}
-	}
 
 	order := []string{}
-	callback := tokenrequest.AuthCallback(func(_ context.Context, gotRequest *tokenrequest.TokenRequest, gotClient vapi.Principal) (vapi.Principal, error) {
-		order = append(order, "grant")
-		if gotRequest != request {
-			t.Errorf("callback request = %#v, want %#v", gotRequest, request)
-		}
-		if gotClient != clientPrincipal {
-			t.Errorf("callback client = %#v, want %#v", gotClient, clientPrincipal)
-		}
-		return wantPrincipal, nil
-	})
 	valid, err := tokenrequest.NewAuthenticator(
-		tokenrequest.WithAuthenticatorAuthCallback(tokenrequest.PasswordGrantType, callback),
+		tokenrequest.WithAuthenticatorReader(&tokenRequestReaderStub{artifact: requestArtifact, order: &order}),
 		tokenrequest.WithAuthenticatorValidator(&tokenRequestValidatorStub{order: &order}),
-		tokenrequest.WithAuthenticatorClientResolver(&clientResolverStub{principal: clientPrincipal, order: &order}),
+		tokenrequest.WithAuthenticatorResolver(&tokenRequestResolverStub{principal: want, order: &order}),
 	)
 	if err != nil {
-		t.Fatalf("NewAuthenticator() failed: %v", err)
+		t.Fatal(err)
 	}
-	clientOnly, err := tokenrequest.NewAuthenticator(tokenrequest.WithAuthenticatorClientResolver(&clientResolverStub{principal: clientPrincipal}))
-	if err != nil {
-		t.Fatalf("NewAuthenticator() failed: %v", err)
-	}
-	validationFails, _ := tokenrequest.NewAuthenticator(
-		tokenrequest.WithAuthenticatorAuthCallback(tokenrequest.PasswordGrantType, callback),
-		tokenrequest.WithAuthenticatorValidator(&tokenRequestValidatorStub{err: validationFailure}),
+	readFails, _ := tokenrequest.NewAuthenticator(
+		tokenrequest.WithAuthenticatorReader(&tokenRequestReaderStub{err: failure}),
+		tokenrequest.WithAuthenticatorValidator(&tokenRequestValidatorStub{}),
+		tokenrequest.WithAuthenticatorResolver(&tokenRequestResolverStub{principal: want}),
 	)
-	clientFails, _ := tokenrequest.NewAuthenticator(
-		tokenrequest.WithAuthenticatorAuthCallback(tokenrequest.PasswordGrantType, callback),
-		tokenrequest.WithAuthenticatorClientResolver(&clientResolverStub{err: clientFailure}),
+	validateFails, _ := tokenrequest.NewAuthenticator(
+		tokenrequest.WithAuthenticatorReader(&tokenRequestReaderStub{artifact: requestArtifact}),
+		tokenrequest.WithAuthenticatorValidator(&tokenRequestValidatorStub{err: failure}),
+		tokenrequest.WithAuthenticatorResolver(&tokenRequestResolverStub{principal: want}),
 	)
-	callbackFails, _ := tokenrequest.NewAuthenticator(tokenrequest.WithAuthenticatorAuthCallback(tokenrequest.PasswordGrantType,
-		func(context.Context, *tokenrequest.TokenRequest, vapi.Principal) (vapi.Principal, error) {
-			return nil, callbackFailure
-		}))
-	callbackReturnsNil, _ := tokenrequest.NewAuthenticator(tokenrequest.WithAuthenticatorAuthCallback(tokenrequest.PasswordGrantType,
-		func(context.Context, *tokenrequest.TokenRequest, vapi.Principal) (vapi.Principal, error) {
-			return nil, nil
-		}))
+	resolveFails, _ := tokenrequest.NewAuthenticator(
+		tokenrequest.WithAuthenticatorReader(&tokenRequestReaderStub{artifact: requestArtifact}),
+		tokenrequest.WithAuthenticatorValidator(&tokenRequestValidatorStub{}),
+		tokenrequest.WithAuthenticatorResolver(&tokenRequestResolverStub{err: failure}),
+	)
+	resolveNil, _ := tokenrequest.NewAuthenticator(
+		tokenrequest.WithAuthenticatorReader(&tokenRequestReaderStub{artifact: requestArtifact}),
+		tokenrequest.WithAuthenticatorValidator(&tokenRequestValidatorStub{}),
+		tokenrequest.WithAuthenticatorResolver(&tokenRequestResolverStub{}),
+	)
 
 	tests := []struct {
 		name          string
 		authenticator *tokenrequest.Authenticator
-		request       *tokenrequest.TokenRequest
 		assert        func(*testing.T, vapi.Principal, error)
 	}{
-		{name: "grant subject after client authentication", authenticator: valid, request: request, assert: assertAuthenticated},
-		{name: "client credentials subject is client", authenticator: clientOnly, request: &tokenrequest.TokenRequest{GrantType: tokenrequest.ClientCredentialsGrantType}, assert: assertClient},
-		{name: "missing grant callback", authenticator: clientOnly, request: request, assert: assertUnauthenticated(nil)},
-		{name: "validation failure", authenticator: validationFails, request: request, assert: assertUnauthenticated(validationFailure)},
-		{name: "client authentication failure", authenticator: clientFails, request: request, assert: assertUnauthenticated(clientFailure)},
-		{name: "grant callback failure", authenticator: callbackFails, request: request, assert: assertUnauthenticated(callbackFailure)},
-		{name: "grant callback returns nil", authenticator: callbackReturnsNil, request: request, assert: assertUnauthenticated(nil)},
-		{name: "nil request", authenticator: valid, assert: assertMalformed},
-		{name: "nil receiver", request: request, assert: assertMisconfigured},
+		{name: "reads validates and resolves", authenticator: valid, assert: assertAuthenticated},
+		{name: "read failure", authenticator: readFails, assert: assertUnauthenticated},
+		{name: "validation failure", authenticator: validateFails, assert: assertUnauthenticated},
+		{name: "resolution failure", authenticator: resolveFails, assert: assertUnauthenticated},
+		{name: "nil principal", authenticator: resolveNil, assert: assertUnauthenticated},
+		{name: "nil receiver", assert: assertMisconfigured},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			order = order[:0]
-			got, gotErr := tt.authenticator.Authenticate(context.Background(), tt.request)
+			got, gotErr := tt.authenticator.Authenticate(context.Background(), &http.Request{})
 			tt.assert(t, got, gotErr)
-			if tt.name == "grant subject after client authentication" {
-				wantOrder := []string{"validate", "client", "grant"}
-				if !reflect.DeepEqual(order, wantOrder) {
-					t.Errorf("authentication order = %#v, want %#v", order, wantOrder)
-				}
+			if tt.name == "reads validates and resolves" && !reflect.DeepEqual(order, []string{"read", "validate", "resolve"}) {
+				t.Errorf("authentication order = %#v", order)
 			}
 		})
 	}
 }
 
 func TestNewAuthenticator(t *testing.T) {
-	callback := tokenrequest.AuthCallback(func(context.Context, *tokenrequest.TokenRequest, vapi.Principal) (vapi.Principal, error) {
-		return sub.NewBasePrincipal("issuer", "subject", "user"), nil
-	})
-	clientCallback := clientcredentials.ResolveFunc(func(context.Context, *clientcredentials.ClientCredentials) (vapi.Principal, error) {
-		return sub.NewBasePrincipal("clients", "client-1", "service"), nil
-	})
 	assertCreated := func(t *testing.T, got *tokenrequest.Authenticator, err error) {
 		if err != nil || got == nil {
 			t.Fatalf("NewAuthenticator() = (%#v, %v), want authenticator", got, err)
@@ -184,18 +140,17 @@ func TestNewAuthenticator(t *testing.T) {
 		options []tokenrequest.AuthenticatorConfigOption
 		assert  func(*testing.T, *tokenrequest.Authenticator, error)
 	}{
-		{name: "grant callback", options: []tokenrequest.AuthenticatorConfigOption{tokenrequest.WithAuthenticatorAuthCallback(tokenrequest.PasswordGrantType, callback)}, assert: assertCreated},
-		{name: "direct client resolver", options: []tokenrequest.AuthenticatorConfigOption{tokenrequest.WithAuthenticatorClientResolver(&clientResolverStub{principal: sub.NewBasePrincipal("clients", "client-1", "service")})}, assert: assertCreated},
-		{name: "client resolver options", options: []tokenrequest.AuthenticatorConfigOption{tokenrequest.WithAuthenticatorClientResolverOptions(clientcredentials.WithResolverRuntimeOptions(clientcredentials.WithResolverAuthenticationMethod(clientcredentials.ClientSecretPostAuthMethod, clientCallback)))}, assert: assertCreated},
-		{name: "validator options", options: []tokenrequest.AuthenticatorConfigOption{tokenrequest.WithAuthenticatorAuthCallback(tokenrequest.PasswordGrantType, callback), tokenrequest.WithAuthenticatorValidatorOptions()}, assert: assertCreated},
-		{name: "missing authentication", assert: assertMisconfigured},
-		{name: "nil config option", options: []tokenrequest.AuthenticatorConfigOption{nil}, assert: assertMisconfigured},
-		{name: "empty grant type", options: []tokenrequest.AuthenticatorConfigOption{tokenrequest.WithAuthenticatorAuthCallback("", callback)}, assert: assertMisconfigured},
-		{name: "nil callback", options: []tokenrequest.AuthenticatorConfigOption{tokenrequest.WithAuthenticatorAuthCallback(tokenrequest.PasswordGrantType, nil)}, assert: assertMisconfigured},
-		{name: "nil validator", options: []tokenrequest.AuthenticatorConfigOption{tokenrequest.WithAuthenticatorAuthCallback(tokenrequest.PasswordGrantType, callback), tokenrequest.WithAuthenticatorValidator(nil)}, assert: assertMisconfigured},
-		{name: "invalid validator options", options: []tokenrequest.AuthenticatorConfigOption{tokenrequest.WithAuthenticatorAuthCallback(tokenrequest.PasswordGrantType, callback), tokenrequest.WithAuthenticatorValidatorOptions(tokenrequest.ValidatorConfigOption(nil))}, assert: assertMisconfigured},
-		{name: "nil client resolver", options: []tokenrequest.AuthenticatorConfigOption{tokenrequest.WithAuthenticatorClientResolver(nil)}, assert: assertMisconfigured},
-		{name: "invalid client resolver options", options: []tokenrequest.AuthenticatorConfigOption{tokenrequest.WithAuthenticatorClientResolverOptions(nil)}, assert: assertMisconfigured},
+		{name: "defaults", assert: assertCreated},
+		{name: "reader options", options: []tokenrequest.AuthenticatorConfigOption{tokenrequest.WithAuthenticatorReaderOptions()}, assert: assertCreated},
+		{name: "validator options", options: []tokenrequest.AuthenticatorConfigOption{tokenrequest.WithAuthenticatorValidatorOptions()}, assert: assertCreated},
+		{name: "resolver options", options: []tokenrequest.AuthenticatorConfigOption{tokenrequest.WithAuthenticatorResolverOptions()}, assert: assertCreated},
+		{name: "nil option", options: []tokenrequest.AuthenticatorConfigOption{nil}, assert: assertMisconfigured},
+		{name: "nil reader", options: []tokenrequest.AuthenticatorConfigOption{tokenrequest.WithAuthenticatorReader(nil)}, assert: assertMisconfigured},
+		{name: "nil validator", options: []tokenrequest.AuthenticatorConfigOption{tokenrequest.WithAuthenticatorValidator(nil)}, assert: assertMisconfigured},
+		{name: "nil resolver", options: []tokenrequest.AuthenticatorConfigOption{tokenrequest.WithAuthenticatorResolver(nil)}, assert: assertMisconfigured},
+		{name: "invalid reader options", options: []tokenrequest.AuthenticatorConfigOption{tokenrequest.WithAuthenticatorReaderOptions(nil)}, assert: assertMisconfigured},
+		{name: "invalid validator options", options: []tokenrequest.AuthenticatorConfigOption{tokenrequest.WithAuthenticatorValidatorOptions(nil)}, assert: assertMisconfigured},
+		{name: "invalid resolver options", options: []tokenrequest.AuthenticatorConfigOption{tokenrequest.WithAuthenticatorResolverOptions(nil)}, assert: assertMisconfigured},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

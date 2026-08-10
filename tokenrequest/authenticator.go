@@ -3,27 +3,21 @@ package tokenrequest
 import (
 	"context"
 	"errors"
-	"fmt"
+	"net/http"
 
 	"github.com/veles-security/vapi"
-	"github.com/veles-security/voauth/clientcredentials"
 )
 
 type Authenticator struct {
-	authCallbacks  map[string]AuthCallback
-	validator      vapi.Validator[*TokenRequest, ValidatorOption]
-	clientResolver vapi.Resolver[*clientcredentials.ClientCredentials, clientcredentials.ResolverOption]
+	reader    vapi.Reader[*http.Request, *TokenRequest, ReaderOption]
+	validator vapi.Validator[*TokenRequest, ValidatorOption]
+	resolver  vapi.Resolver[*TokenRequest, ResolverOption]
 }
 
 type AuthenticatorConfigOption func(*Authenticator) error
 
-// AuthCallback authenticates a token request for a grant type and returns the
-// principal for which the token will be issued. clientPrincipal is nil when no
-// client resolver is configured.
-type AuthCallback func(ctx context.Context, request *TokenRequest, clientPrincipal vapi.Principal) (vapi.Principal, error)
-
 func NewAuthenticator(configOptions ...AuthenticatorConfigOption) (*Authenticator, error) {
-	authenticator := &Authenticator{authCallbacks: make(map[string]AuthCallback)}
+	authenticator := &Authenticator{}
 	for _, option := range configOptions {
 		if option == nil {
 			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, errors.New("nil authenticator config option"))
@@ -32,53 +26,54 @@ func NewAuthenticator(configOptions ...AuthenticatorConfigOption) (*Authenticato
 			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, err)
 		}
 	}
-	if len(authenticator.authCallbacks) == 0 && authenticator.clientResolver == nil {
-		return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, errors.New("no token request authentication callbacks or client resolver"))
+	if authenticator.reader == nil {
+		reader, err := NewReader()
+		if err != nil {
+			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, err)
+		}
+		authenticator.reader = reader
+	}
+	if authenticator.validator == nil {
+		validator, err := NewValidator()
+		if err != nil {
+			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, err)
+		}
+		authenticator.validator = validator
+	}
+	if authenticator.resolver == nil {
+		resolver, err := NewResolver()
+		if err != nil {
+			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, err)
+		}
+		authenticator.resolver = resolver
 	}
 	return authenticator, nil
 }
 
 // Authenticate implements [vapi.Authenticator].
-func (a *Authenticator) Authenticate(ctx context.Context, request *TokenRequest) (vapi.Principal, error) {
-	if a == nil || a.authCallbacks == nil || (len(a.authCallbacks) == 0 && a.clientResolver == nil) {
+func (a *Authenticator) Authenticate(ctx context.Context, request *http.Request) (vapi.Principal, error) {
+	if a == nil || a.reader == nil || a.validator == nil || a.resolver == nil {
 		return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, errors.New("cannot authenticate token request with invalid authenticator configuration"))
 	}
-	if request == nil {
-		return nil, vapi.NewErrorCategory(vapi.ErrMalformed, errors.New("cannot authenticate nil token request"))
-	}
-	if a.validator != nil {
-		if err := a.validator.Validate(ctx, request); err != nil {
-			return nil, vapi.NewErrorCategory(vapi.ErrUnauthenticated, fmt.Errorf("validate token request: %w", err))
-		}
-	}
 
-	var clientPrincipal vapi.Principal
-	if a.clientResolver != nil {
-		principal, err := a.clientResolver.Resolve(ctx, &request.ClientCredentials)
-		if err != nil {
-			return nil, vapi.NewErrorCategory(vapi.ErrUnauthenticated, fmt.Errorf("authenticate client: %w", err))
-		}
-		if principal == nil {
-			return nil, vapi.NewErrorCategory(vapi.ErrUnauthenticated, errors.New("client resolver returned nil principal"))
-		}
-		clientPrincipal = principal
-	}
-
-	callback, ok := a.authCallbacks[request.GrantType]
-	if !ok {
-		if request.GrantType == ClientCredentialsGrantType && clientPrincipal != nil {
-			return clientPrincipal, nil
-		}
-		return nil, vapi.NewErrorCategory(vapi.ErrUnauthenticated, fmt.Errorf("no authentication callback for grant type %q", request.GrantType))
-	}
-	principal, err := callback(ctx, request, clientPrincipal)
+	artifact, err := a.reader.ReadArtifact(ctx, request)
 	if err != nil {
-		return nil, vapi.NewErrorCategory(vapi.ErrUnauthenticated, fmt.Errorf("authenticate token request for grant type %q: %w", request.GrantType, err))
+		if errors.Is(err, vapi.ErrNotApplicable) {
+			return nil, err
+		}
+		return nil, vapi.NewErrorCategory(vapi.ErrUnauthenticated, err)
+	}
+	if err := a.validator.Validate(ctx, artifact); err != nil {
+		return nil, vapi.NewErrorCategory(vapi.ErrUnauthenticated, err)
+	}
+	principal, err := a.resolver.Resolve(ctx, artifact)
+	if err != nil {
+		return nil, vapi.NewErrorCategory(vapi.ErrUnauthenticated, err)
 	}
 	if principal == nil {
-		return nil, vapi.NewErrorCategory(vapi.ErrUnauthenticated, fmt.Errorf("authentication callback for grant type %q returned nil principal", request.GrantType))
+		return nil, vapi.NewErrorCategory(vapi.ErrUnauthenticated, errors.New("token request resolver returned nil principal"))
 	}
 	return principal, nil
 }
 
-var _ vapi.Authenticator[*TokenRequest] = &Authenticator{}
+var _ vapi.Authenticator[*http.Request] = &Authenticator{}

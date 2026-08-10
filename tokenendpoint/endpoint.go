@@ -40,7 +40,7 @@ type TokenEndpointConfigOption func(*TokenEndpoint) error
 type TokenEndpoint struct {
 	requestReader         *tokenrequest.Reader
 	requestReaderOptions  []tokenrequest.ReaderConfigOption
-	requestAuthenticator  vapi.Authenticator[*tokenrequest.TokenRequest]
+	requestAuthenticator  vapi.Authenticator[*http.Request]
 	issuer                vapi.Issuer[jwt.IssuerOption, *jwt.Token]
 	issuerOptionsCallback IssuerOptionsCallback
 	responseWriter        vapi.Writer[http.ResponseWriter, *tokenresponse.TokenResponse, tokenresponse.WriterOption]
@@ -107,7 +107,7 @@ func (e *TokenEndpoint) ServeHTTP(response http.ResponseWriter, request *http.Re
 		e.handleError(response, err)
 		return
 	}
-	principal, err := e.requestAuthenticator.Authenticate(request.Context(), tokenRequest)
+	principal, err := e.requestAuthenticator.Authenticate(request.Context(), request)
 	if err != nil {
 		e.handleError(response, err)
 		return

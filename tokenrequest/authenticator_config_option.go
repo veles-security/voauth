@@ -2,28 +2,32 @@ package tokenrequest
 
 import (
 	"errors"
-	"fmt"
+	"net/http"
 
 	"github.com/veles-security/vapi"
-	"github.com/veles-security/voauth/clientcredentials"
 )
 
-// WithAuthenticatorAuthCallback configures the callback for an OAuth grant
-// type. It may be provided repeatedly for different grant types.
-func WithAuthenticatorAuthCallback(grantType string, callback AuthCallback) AuthenticatorConfigOption {
+func WithAuthenticatorReader(reader vapi.Reader[*http.Request, *TokenRequest, ReaderOption]) AuthenticatorConfigOption {
 	return func(authenticator *Authenticator) error {
-		if grantType == "" {
-			return errors.New("empty grant type")
+		if reader == nil {
+			return errors.New("nil token request reader")
 		}
-		if callback == nil {
-			return fmt.Errorf("nil authentication callback for grant type %q", grantType)
-		}
-		authenticator.authCallbacks[grantType] = callback
+		authenticator.reader = reader
 		return nil
 	}
 }
 
-// WithAuthenticatorValidator configures the optional token request validator.
+func WithAuthenticatorReaderOptions(options ...ReaderConfigOption) AuthenticatorConfigOption {
+	return func(authenticator *Authenticator) error {
+		reader, err := NewReader(options...)
+		if err != nil {
+			return err
+		}
+		authenticator.reader = reader
+		return nil
+	}
+}
+
 func WithAuthenticatorValidator(validator vapi.Validator[*TokenRequest, ValidatorOption]) AuthenticatorConfigOption {
 	return func(authenticator *Authenticator) error {
 		if validator == nil {
@@ -34,8 +38,6 @@ func WithAuthenticatorValidator(validator vapi.Validator[*TokenRequest, Validato
 	}
 }
 
-// WithAuthenticatorValidatorOptions constructs the optional token request
-// validator with the provided configuration options.
 func WithAuthenticatorValidatorOptions(options ...ValidatorConfigOption) AuthenticatorConfigOption {
 	return func(authenticator *Authenticator) error {
 		validator, err := NewValidator(options...)
@@ -47,27 +49,23 @@ func WithAuthenticatorValidatorOptions(options ...ValidatorConfigOption) Authent
 	}
 }
 
-// WithAuthenticatorClientResolver configures the optional
-// authenticator for the client credentials artifact carried by the token request.
-func WithAuthenticatorClientResolver(resolver vapi.Resolver[*clientcredentials.ClientCredentials, clientcredentials.ResolverOption]) AuthenticatorConfigOption {
-	return func(tokenRequestAuthenticator *Authenticator) error {
+func WithAuthenticatorResolver(resolver vapi.Resolver[*TokenRequest, ResolverOption]) AuthenticatorConfigOption {
+	return func(authenticator *Authenticator) error {
 		if resolver == nil {
-			return errors.New("nil client credentials resolver")
+			return errors.New("nil token request resolver")
 		}
-		tokenRequestAuthenticator.clientResolver = resolver
+		authenticator.resolver = resolver
 		return nil
 	}
 }
 
-// WithAuthenticatorClientResolverOptions constructs the optional
-// client resolver with the provided configuration options.
-func WithAuthenticatorClientResolverOptions(options ...clientcredentials.ResolverConfigOption) AuthenticatorConfigOption {
+func WithAuthenticatorResolverOptions(options ...ResolverConfigOption) AuthenticatorConfigOption {
 	return func(authenticator *Authenticator) error {
-		clientResolver, err := clientcredentials.NewResolver(options...)
+		resolver, err := NewResolver(options...)
 		if err != nil {
 			return err
 		}
-		authenticator.clientResolver = clientResolver
+		authenticator.resolver = resolver
 		return nil
 	}
 }

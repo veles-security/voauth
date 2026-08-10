@@ -21,7 +21,7 @@ func WithTokenRequestReaderOptions(options ...tokenrequest.ReaderConfigOption) T
 }
 
 // WithTokenRequestAuthenticator binds the token request authenticator.
-func WithTokenRequestAuthenticator(authenticator vapi.Authenticator[*tokenrequest.TokenRequest]) TokenEndpointConfigOption {
+func WithTokenRequestAuthenticator(authenticator vapi.Authenticator[*http.Request]) TokenEndpointConfigOption {
 	return func(endpoint *TokenEndpoint) error {
 		if authenticator == nil {
 			return errors.New("nil token request authenticator")

@@ -27,7 +27,7 @@ type requestAuthenticatorStub struct {
 
 type nonScopedPrincipal struct{ vapi.Principal }
 
-func (a *requestAuthenticatorStub) Authenticate(context.Context, *tokenrequest.TokenRequest) (vapi.Principal, error) {
+func (a *requestAuthenticatorStub) Authenticate(context.Context, *http.Request) (vapi.Principal, error) {
 	return a.principal, a.err
 }
 
@@ -65,7 +65,7 @@ func TestNew(t *testing.T) {
 	}{
 		{name: "direct bindings", options: []tokenendpoint.TokenEndpointConfigOption{tokenendpoint.WithTokenRequestAuthenticator(authenticator), tokenendpoint.WithIssuer(issuer), tokenendpoint.WithTokenResponseWriter(writer), tokenendpoint.WithIssuerOptionsCallback(callback)}, assert: assertCreated},
 		{name: "configured bindings", options: []tokenendpoint.TokenEndpointConfigOption{
-			tokenendpoint.WithTokenRequestAuthenticatorOptions(tokenrequest.WithAuthenticatorAuthCallback(tokenrequest.PasswordGrantType, grantCallback)),
+			tokenendpoint.WithTokenRequestAuthenticatorOptions(tokenrequest.WithAuthenticatorResolverOptions(tokenrequest.WithResolverAuthCallback(tokenrequest.PasswordGrantType, grantCallback))),
 			tokenendpoint.WithIssuerOptions(),
 			tokenendpoint.WithTokenResponseWriterOptions(),
 			tokenendpoint.WithIssuedTokens(tokenendpoint.IssuedAccessToken, tokenendpoint.IssuedRefreshToken, tokenendpoint.IssuedIDToken),
@@ -75,7 +75,7 @@ func TestNew(t *testing.T) {
 		{name: "missing issuer callback", options: []tokenendpoint.TokenEndpointConfigOption{tokenendpoint.WithTokenRequestAuthenticator(authenticator)}, assert: assertMisconfigured},
 		{name: "nil endpoint option", options: []tokenendpoint.TokenEndpointConfigOption{nil}, assert: assertMisconfigured},
 		{name: "nil authenticator", options: []tokenendpoint.TokenEndpointConfigOption{tokenendpoint.WithTokenRequestAuthenticator(nil)}, assert: assertMisconfigured},
-		{name: "invalid authenticator options", options: []tokenendpoint.TokenEndpointConfigOption{tokenendpoint.WithTokenRequestAuthenticatorOptions()}, assert: assertMisconfigured},
+		{name: "invalid authenticator options", options: []tokenendpoint.TokenEndpointConfigOption{tokenendpoint.WithTokenRequestAuthenticatorOptions(tokenrequest.AuthenticatorConfigOption(nil))}, assert: assertMisconfigured},
 		{name: "nil issuer", options: []tokenendpoint.TokenEndpointConfigOption{tokenendpoint.WithIssuer(nil)}, assert: assertMisconfigured},
 		{name: "invalid issuer options", options: []tokenendpoint.TokenEndpointConfigOption{tokenendpoint.WithIssuerOptions(jwt.IssuerConfigOption(nil))}, assert: assertMisconfigured},
 		{name: "nil writer", options: []tokenendpoint.TokenEndpointConfigOption{tokenendpoint.WithTokenResponseWriter(nil)}, assert: assertMisconfigured},
