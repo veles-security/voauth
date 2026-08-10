@@ -49,23 +49,23 @@ func WithAuthenticatorValidatorOptions(options ...ValidatorConfigOption) Authent
 	}
 }
 
-func WithAuthenticatorArtifactAuthenticator(artifactAuthenticator vapi.ArtifactAuthenticator[*ClientCredentials, ArtifactAuthenticatorOption]) AuthenticatorConfigOption {
+func WithAuthenticatorResolver(resolver vapi.Resolver[*ClientCredentials, ResolverOption]) AuthenticatorConfigOption {
 	return func(authenticator *Authenticator) error {
-		if artifactAuthenticator == nil {
-			return errors.New("nil client credentials artifact authenticator")
+		if resolver == nil {
+			return errors.New("nil client credentials resolver")
 		}
-		authenticator.artifactAuthenticator = artifactAuthenticator
+		authenticator.resolver = resolver
 		return nil
 	}
 }
 
-func WithAuthenticatorArtifactAuthenticatorOptions(options ...ArtifactAuthenticatorConfigOption) AuthenticatorConfigOption {
+func WithAuthenticatorResolverOptions(options ...ResolverConfigOption) AuthenticatorConfigOption {
 	return func(authenticator *Authenticator) error {
-		artifactAuthenticator, err := NewArtifactAuthenticator(options...)
+		resolver, err := NewResolver(options...)
 		if err != nil {
 			return err
 		}
-		authenticator.artifactAuthenticator = artifactAuthenticator
+		authenticator.resolver = resolver
 		return nil
 	}
 }

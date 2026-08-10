@@ -2,3 +2,5 @@ github.com/veles-security/vapi v1.8.0 h1:m/bBHmHK5EHAzjBaMtAxclrJqS0hWEl4l+AWWdR
 github.com/veles-security/vapi v1.8.0/go.mod h1:lNjbdnY/29O3pcOvmqBM23iR9Vt+w9BH50v7iEAVDi8=
 github.com/veles-security/vapi v1.9.0 h1:w2XsY+rxFqsQpol8c3aadA4T2TzrvjQcF8vflZzGmfA=
 github.com/veles-security/vapi v1.9.0/go.mod h1:lNjbdnY/29O3pcOvmqBM23iR9Vt+w9BH50v7iEAVDi8=
+github.com/veles-security/vapi v1.10.0 h1:4Encpb0RbW3w/OeigWzJVgC+hZvR4S8IFUiDARzymvg=
+github.com/veles-security/vapi v1.10.0/go.mod h1:lNjbdnY/29O3pcOvmqBM23iR9Vt+w9BH50v7iEAVDi8=

@@ -9,9 +9,9 @@ import (
 )
 
 type Authenticator struct {
-	reader                vapi.Reader[*http.Request, *ClientCredentials, ReaderOption]
-	validator             vapi.Validator[*ClientCredentials, ValidatorOption]
-	artifactAuthenticator vapi.ArtifactAuthenticator[*ClientCredentials, ArtifactAuthenticatorOption]
+	reader    vapi.Reader[*http.Request, *ClientCredentials, ReaderOption]
+	validator vapi.Validator[*ClientCredentials, ValidatorOption]
+	resolver  vapi.Resolver[*ClientCredentials, ResolverOption]
 }
 
 type AuthenticatorConfigOption func(*Authenticator) error
@@ -40,19 +40,19 @@ func NewAuthenticator(configOptions ...AuthenticatorConfigOption) (*Authenticato
 		}
 		authenticator.validator = validator
 	}
-	if authenticator.artifactAuthenticator == nil {
-		artifactAuthenticator, err := NewArtifactAuthenticator()
+	if authenticator.resolver == nil {
+		resolver, err := NewResolver()
 		if err != nil {
 			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, err)
 		}
-		authenticator.artifactAuthenticator = artifactAuthenticator
+		authenticator.resolver = resolver
 	}
 	return authenticator, nil
 }
 
 // Authenticate implements [vapi.Authenticator].
 func (a *Authenticator) Authenticate(ctx context.Context, request *http.Request) (vapi.Principal, error) {
-	if a == nil || a.reader == nil || a.validator == nil || a.artifactAuthenticator == nil {
+	if a == nil || a.reader == nil || a.validator == nil || a.resolver == nil {
 		return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, errors.New("cannot authenticate client credentials with invalid authenticator configuration"))
 	}
 	credentials, err := a.reader.ReadArtifact(ctx, request)
@@ -65,12 +65,12 @@ func (a *Authenticator) Authenticate(ctx context.Context, request *http.Request)
 	if err := a.validator.Validate(ctx, credentials); err != nil {
 		return nil, vapi.NewErrorCategory(vapi.ErrUnauthenticated, err)
 	}
-	principal, err := a.artifactAuthenticator.AuthenticateArtifact(ctx, credentials)
+	principal, err := a.resolver.Resolve(ctx, credentials)
 	if err != nil {
 		return nil, vapi.NewErrorCategory(vapi.ErrUnauthenticated, err)
 	}
 	if principal == nil {
-		return nil, vapi.NewErrorCategory(vapi.ErrUnauthenticated, errors.New("client credentials artifact authenticator returned nil principal"))
+		return nil, vapi.NewErrorCategory(vapi.ErrUnauthenticated, errors.New("client credentials resolver returned nil principal"))
 	}
 	return principal, nil
 }

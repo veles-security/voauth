@@ -9,7 +9,7 @@ import (
 	"github.com/veles-security/vapi/sub"
 )
 
-func WithStandardClaims() ArtifactAuthenticatorOption {
+func WithStandardClaims() ResolverOption {
 	numericDate := func(value any) (time.Time, bool) {
 		seconds, ok := value.(float64)
 		if !ok {
@@ -20,7 +20,7 @@ func WithStandardClaims() ArtifactAuthenticatorOption {
 		return time.Unix(whole, nanos).UTC(), true
 	}
 
-	return func(next AuthenticateArtifactFunc) AuthenticateArtifactFunc {
+	return func(next ResolveFunc) ResolveFunc {
 
 		return func(ctx context.Context, token *Token) (vapi.Principal, error) {
 			principal, err := next(ctx, token)

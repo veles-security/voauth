@@ -42,26 +42,26 @@ func WithAuthenticatorValidatorOptions(options ...ValidatorConfigOption) Authent
 	}
 }
 
-// WithAuthenticatorArtifactAuthenticator configures the JWT artifact authenticator.
-func WithAuthenticatorArtifactAuthenticator(artifactAuthenticator vapi.ArtifactAuthenticator[*Token, ArtifactAuthenticatorOption]) AuthenticatorConfigOption {
+// WithAuthenticatorResolver configures the JWT resolver.
+func WithAuthenticatorResolver(resolver vapi.Resolver[*Token, ResolverOption]) AuthenticatorConfigOption {
 	return func(authenticator *Authenticator) error {
-		if artifactAuthenticator == nil {
-			return errors.New("nil JWT artifact authenticator")
+		if resolver == nil {
+			return errors.New("nil JWT resolver")
 		}
-		authenticator.artifactAuthenticator = artifactAuthenticator
+		authenticator.resolver = resolver
 		return nil
 	}
 }
 
-// WithAuthenticatorArtifactAuthenticatorOptions configures the JWT artifact
-// authenticator by constructing it with the provided configuration options.
-func WithAuthenticatorArtifactAuthenticatorOptions(options ...ArtifactAuthenticatorConfigOption) AuthenticatorConfigOption {
+// WithAuthenticatorResolverOptions configures the JWT resolver by constructing
+// it with the provided configuration options.
+func WithAuthenticatorResolverOptions(options ...ResolverConfigOption) AuthenticatorConfigOption {
 	return func(authenticator *Authenticator) error {
-		artifactAuthenticator, err := NewArtifactAuthenticator(options...)
+		resolver, err := NewResolver(options...)
 		if err != nil {
 			return err
 		}
-		authenticator.artifactAuthenticator = artifactAuthenticator
+		authenticator.resolver = resolver
 		return nil
 	}
 }

@@ -47,27 +47,27 @@ func WithAuthenticatorValidatorOptions(options ...ValidatorConfigOption) Authent
 	}
 }
 
-// WithAuthenticatorClientArtifactAuthenticator configures the optional
+// WithAuthenticatorClientResolver configures the optional
 // authenticator for the client credentials artifact carried by the token request.
-func WithAuthenticatorClientArtifactAuthenticator(authenticator vapi.ArtifactAuthenticator[*clientcredentials.ClientCredentials, clientcredentials.ArtifactAuthenticatorOption]) AuthenticatorConfigOption {
+func WithAuthenticatorClientResolver(resolver vapi.Resolver[*clientcredentials.ClientCredentials, clientcredentials.ResolverOption]) AuthenticatorConfigOption {
 	return func(tokenRequestAuthenticator *Authenticator) error {
-		if authenticator == nil {
-			return errors.New("nil client credentials authenticator")
+		if resolver == nil {
+			return errors.New("nil client credentials resolver")
 		}
-		tokenRequestAuthenticator.clientArtifactAuthenticator = authenticator
+		tokenRequestAuthenticator.clientResolver = resolver
 		return nil
 	}
 }
 
-// WithAuthenticatorClientArtifactAuthenticatorOptions constructs the optional
-// client artifact authenticator with the provided configuration options.
-func WithAuthenticatorClientArtifactAuthenticatorOptions(options ...clientcredentials.ArtifactAuthenticatorConfigOption) AuthenticatorConfigOption {
+// WithAuthenticatorClientResolverOptions constructs the optional
+// client resolver with the provided configuration options.
+func WithAuthenticatorClientResolverOptions(options ...clientcredentials.ResolverConfigOption) AuthenticatorConfigOption {
 	return func(authenticator *Authenticator) error {
-		clientAuthenticator, err := clientcredentials.NewArtifactAuthenticator(options...)
+		clientResolver, err := clientcredentials.NewResolver(options...)
 		if err != nil {
 			return err
 		}
-		authenticator.clientArtifactAuthenticator = clientAuthenticator
+		authenticator.clientResolver = clientResolver
 		return nil
 	}
 }
