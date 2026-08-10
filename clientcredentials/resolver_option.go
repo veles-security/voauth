@@ -8,9 +8,9 @@ import (
 	"github.com/veles-security/vapi"
 )
 
-// WithAuthenticationMethod authenticates credentials using authenticate when
+// WithResolverAuthenticationMethod authenticates credentials using authenticate when
 // their client authentication method matches method.
-func WithAuthenticationMethod(method string, authenticate ResolveFunc) ResolverOption {
+func WithResolverAuthenticationMethod(method string, authenticate ResolveFunc) ResolverOption {
 	return func(next ResolveFunc) ResolveFunc {
 		return func(ctx context.Context, credentials *ClientCredentials) (vapi.Principal, error) {
 			if credentials.AuthMethod != method {

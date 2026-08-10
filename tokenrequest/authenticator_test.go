@@ -186,7 +186,7 @@ func TestNewAuthenticator(t *testing.T) {
 	}{
 		{name: "grant callback", options: []tokenrequest.AuthenticatorConfigOption{tokenrequest.WithAuthenticatorAuthCallback(tokenrequest.PasswordGrantType, callback)}, assert: assertCreated},
 		{name: "direct client resolver", options: []tokenrequest.AuthenticatorConfigOption{tokenrequest.WithAuthenticatorClientResolver(&clientResolverStub{principal: sub.NewBasePrincipal("clients", "client-1", "service")})}, assert: assertCreated},
-		{name: "client resolver options", options: []tokenrequest.AuthenticatorConfigOption{tokenrequest.WithAuthenticatorClientResolverOptions(clientcredentials.WithResolverRuntimeOptions(clientcredentials.WithAuthenticationMethod(clientcredentials.ClientSecretPostAuthMethod, clientCallback)))}, assert: assertCreated},
+		{name: "client resolver options", options: []tokenrequest.AuthenticatorConfigOption{tokenrequest.WithAuthenticatorClientResolverOptions(clientcredentials.WithResolverRuntimeOptions(clientcredentials.WithResolverAuthenticationMethod(clientcredentials.ClientSecretPostAuthMethod, clientCallback)))}, assert: assertCreated},
 		{name: "validator options", options: []tokenrequest.AuthenticatorConfigOption{tokenrequest.WithAuthenticatorAuthCallback(tokenrequest.PasswordGrantType, callback), tokenrequest.WithAuthenticatorValidatorOptions()}, assert: assertCreated},
 		{name: "missing authentication", assert: assertMisconfigured},
 		{name: "nil config option", options: []tokenrequest.AuthenticatorConfigOption{nil}, assert: assertMisconfigured},

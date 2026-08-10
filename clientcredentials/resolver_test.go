@@ -14,7 +14,7 @@ import (
 func TestResolver(t *testing.T) {
 	credentials := &clientcredentials.ClientCredentials{AuthMethod: clientcredentials.ClientSecretPostAuthMethod, ClientId: "client-1", ClientSecret: "secret"}
 	want := sub.NewBasePrincipal("clients", "client-1", "service")
-	option := clientcredentials.WithAuthenticationMethod(clientcredentials.ClientSecretPostAuthMethod, func(_ context.Context, got *clientcredentials.ClientCredentials) (vapi.Principal, error) {
+	option := clientcredentials.WithResolverAuthenticationMethod(clientcredentials.ClientSecretPostAuthMethod, func(_ context.Context, got *clientcredentials.ClientCredentials) (vapi.Principal, error) {
 		if got != credentials {
 			t.Fatal("authentication function received different credentials")
 		}
