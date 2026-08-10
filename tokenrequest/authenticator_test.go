@@ -30,7 +30,7 @@ type clientAuthenticatorStub struct {
 	order     *[]string
 }
 
-func (a *clientAuthenticatorStub) Authenticate(context.Context, *clientcredentials.ClientCredentials) (vapi.Principal, error) {
+func (a *clientAuthenticatorStub) AuthenticateArtifact(context.Context, *clientcredentials.ClientCredentials, ...clientcredentials.ArtifactAuthenticatorOption) (vapi.Principal, error) {
 	if a.order != nil {
 		*a.order = append(*a.order, "client")
 	}
@@ -105,12 +105,12 @@ func TestAuthenticator_Authenticate(t *testing.T) {
 	valid, err := tokenrequest.NewAuthenticator(
 		tokenrequest.WithAuthenticatorAuthCallback(tokenrequest.PasswordGrantType, callback),
 		tokenrequest.WithAuthenticatorValidator(&tokenRequestValidatorStub{order: &order}),
-		tokenrequest.WithAuthenticatorClientAuthenticator(&clientAuthenticatorStub{principal: clientPrincipal, order: &order}),
+		tokenrequest.WithAuthenticatorClientArtifactAuthenticator(&clientAuthenticatorStub{principal: clientPrincipal, order: &order}),
 	)
 	if err != nil {
 		t.Fatalf("NewAuthenticator() failed: %v", err)
 	}
-	clientOnly, err := tokenrequest.NewAuthenticator(tokenrequest.WithAuthenticatorClientAuthenticator(&clientAuthenticatorStub{principal: clientPrincipal}))
+	clientOnly, err := tokenrequest.NewAuthenticator(tokenrequest.WithAuthenticatorClientArtifactAuthenticator(&clientAuthenticatorStub{principal: clientPrincipal}))
 	if err != nil {
 		t.Fatalf("NewAuthenticator() failed: %v", err)
 	}
@@ -120,7 +120,7 @@ func TestAuthenticator_Authenticate(t *testing.T) {
 	)
 	clientFails, _ := tokenrequest.NewAuthenticator(
 		tokenrequest.WithAuthenticatorAuthCallback(tokenrequest.PasswordGrantType, callback),
-		tokenrequest.WithAuthenticatorClientAuthenticator(&clientAuthenticatorStub{err: clientFailure}),
+		tokenrequest.WithAuthenticatorClientArtifactAuthenticator(&clientAuthenticatorStub{err: clientFailure}),
 	)
 	callbackFails, _ := tokenrequest.NewAuthenticator(tokenrequest.WithAuthenticatorAuthCallback(tokenrequest.PasswordGrantType,
 		func(context.Context, *tokenrequest.TokenRequest, vapi.Principal) (vapi.Principal, error) {
@@ -166,7 +166,7 @@ func TestNewAuthenticator(t *testing.T) {
 	callback := tokenrequest.AuthCallback(func(context.Context, *tokenrequest.TokenRequest, vapi.Principal) (vapi.Principal, error) {
 		return sub.NewBasePrincipal("issuer", "subject", "user"), nil
 	})
-	clientCallback := clientcredentials.AuthCallback(func(context.Context, *clientcredentials.ClientCredentials) (vapi.Principal, error) {
+	clientCallback := clientcredentials.AuthenticateArtifactFunc(func(context.Context, *clientcredentials.ClientCredentials) (vapi.Principal, error) {
 		return sub.NewBasePrincipal("clients", "client-1", "service"), nil
 	})
 	assertCreated := func(t *testing.T, got *tokenrequest.Authenticator, err error) {
@@ -185,8 +185,8 @@ func TestNewAuthenticator(t *testing.T) {
 		assert  func(*testing.T, *tokenrequest.Authenticator, error)
 	}{
 		{name: "grant callback", options: []tokenrequest.AuthenticatorConfigOption{tokenrequest.WithAuthenticatorAuthCallback(tokenrequest.PasswordGrantType, callback)}, assert: assertCreated},
-		{name: "direct client authenticator", options: []tokenrequest.AuthenticatorConfigOption{tokenrequest.WithAuthenticatorClientAuthenticator(&clientAuthenticatorStub{principal: sub.NewBasePrincipal("clients", "client-1", "service")})}, assert: assertCreated},
-		{name: "client authenticator options", options: []tokenrequest.AuthenticatorConfigOption{tokenrequest.WithAuthenticatorClientAuthenticatorOptions(clientcredentials.WithAuthenticatorAuthCallback(clientcredentials.ClientSecretPostAuthMethod, clientCallback))}, assert: assertCreated},
+		{name: "direct client authenticator", options: []tokenrequest.AuthenticatorConfigOption{tokenrequest.WithAuthenticatorClientArtifactAuthenticator(&clientAuthenticatorStub{principal: sub.NewBasePrincipal("clients", "client-1", "service")})}, assert: assertCreated},
+		{name: "client authenticator options", options: []tokenrequest.AuthenticatorConfigOption{tokenrequest.WithAuthenticatorClientArtifactAuthenticatorOptions(clientcredentials.WithArtifactAuthenticatorRuntimeOptions(clientcredentials.WithAuthenticationMethod(clientcredentials.ClientSecretPostAuthMethod, clientCallback)))}, assert: assertCreated},
 		{name: "validator options", options: []tokenrequest.AuthenticatorConfigOption{tokenrequest.WithAuthenticatorAuthCallback(tokenrequest.PasswordGrantType, callback), tokenrequest.WithAuthenticatorValidatorOptions()}, assert: assertCreated},
 		{name: "missing authentication", assert: assertMisconfigured},
 		{name: "nil config option", options: []tokenrequest.AuthenticatorConfigOption{nil}, assert: assertMisconfigured},
@@ -194,8 +194,8 @@ func TestNewAuthenticator(t *testing.T) {
 		{name: "nil callback", options: []tokenrequest.AuthenticatorConfigOption{tokenrequest.WithAuthenticatorAuthCallback(tokenrequest.PasswordGrantType, nil)}, assert: assertMisconfigured},
 		{name: "nil validator", options: []tokenrequest.AuthenticatorConfigOption{tokenrequest.WithAuthenticatorAuthCallback(tokenrequest.PasswordGrantType, callback), tokenrequest.WithAuthenticatorValidator(nil)}, assert: assertMisconfigured},
 		{name: "invalid validator options", options: []tokenrequest.AuthenticatorConfigOption{tokenrequest.WithAuthenticatorAuthCallback(tokenrequest.PasswordGrantType, callback), tokenrequest.WithAuthenticatorValidatorOptions(tokenrequest.ValidatorConfigOption(nil))}, assert: assertMisconfigured},
-		{name: "nil client authenticator", options: []tokenrequest.AuthenticatorConfigOption{tokenrequest.WithAuthenticatorClientAuthenticator(nil)}, assert: assertMisconfigured},
-		{name: "invalid client authenticator options", options: []tokenrequest.AuthenticatorConfigOption{tokenrequest.WithAuthenticatorClientAuthenticatorOptions()}, assert: assertMisconfigured},
+		{name: "nil client authenticator", options: []tokenrequest.AuthenticatorConfigOption{tokenrequest.WithAuthenticatorClientArtifactAuthenticator(nil)}, assert: assertMisconfigured},
+		{name: "invalid client authenticator options", options: []tokenrequest.AuthenticatorConfigOption{tokenrequest.WithAuthenticatorClientArtifactAuthenticatorOptions(nil)}, assert: assertMisconfigured},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

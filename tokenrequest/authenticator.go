@@ -10,9 +10,9 @@ import (
 )
 
 type Authenticator struct {
-	authCallbacks       map[string]AuthCallback
-	validator           vapi.Validator[*TokenRequest, ValidatorOption]
-	clientAuthenticator vapi.Authenticator[*clientcredentials.ClientCredentials]
+	authCallbacks               map[string]AuthCallback
+	validator                   vapi.Validator[*TokenRequest, ValidatorOption]
+	clientArtifactAuthenticator vapi.ArtifactAuthenticator[*clientcredentials.ClientCredentials, clientcredentials.ArtifactAuthenticatorOption]
 }
 
 type AuthenticatorConfigOption func(*Authenticator) error
@@ -32,7 +32,7 @@ func NewAuthenticator(configOptions ...AuthenticatorConfigOption) (*Authenticato
 			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, err)
 		}
 	}
-	if len(authenticator.authCallbacks) == 0 && authenticator.clientAuthenticator == nil {
+	if len(authenticator.authCallbacks) == 0 && authenticator.clientArtifactAuthenticator == nil {
 		return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, errors.New("no token request authentication callbacks or client authenticator"))
 	}
 	return authenticator, nil
@@ -40,7 +40,7 @@ func NewAuthenticator(configOptions ...AuthenticatorConfigOption) (*Authenticato
 
 // Authenticate implements [vapi.Authenticator].
 func (a *Authenticator) Authenticate(ctx context.Context, request *TokenRequest) (vapi.Principal, error) {
-	if a == nil || a.authCallbacks == nil || (len(a.authCallbacks) == 0 && a.clientAuthenticator == nil) {
+	if a == nil || a.authCallbacks == nil || (len(a.authCallbacks) == 0 && a.clientArtifactAuthenticator == nil) {
 		return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, errors.New("cannot authenticate token request with invalid authenticator configuration"))
 	}
 	if request == nil {
@@ -53,8 +53,8 @@ func (a *Authenticator) Authenticate(ctx context.Context, request *TokenRequest)
 	}
 
 	var clientPrincipal vapi.Principal
-	if a.clientAuthenticator != nil {
-		principal, err := a.clientAuthenticator.Authenticate(ctx, &request.ClientCredentials)
+	if a.clientArtifactAuthenticator != nil {
+		principal, err := a.clientArtifactAuthenticator.AuthenticateArtifact(ctx, &request.ClientCredentials)
 		if err != nil {
 			return nil, vapi.NewErrorCategory(vapi.ErrUnauthenticated, fmt.Errorf("authenticate client: %w", err))
 		}

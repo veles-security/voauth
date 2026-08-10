@@ -3,22 +3,21 @@ package clientcredentials
 import (
 	"context"
 	"errors"
-	"fmt"
+	"net/http"
 
 	"github.com/veles-security/vapi"
 )
 
 type Authenticator struct {
-	authCallbacks map[string]AuthCallback
-	validator     vapi.Validator[*ClientCredentials, ValidatorOption]
+	reader                vapi.Reader[*http.Request, *ClientCredentials, ReaderOption]
+	validator             vapi.Validator[*ClientCredentials, ValidatorOption]
+	artifactAuthenticator vapi.ArtifactAuthenticator[*ClientCredentials, ArtifactAuthenticatorOption]
 }
-
-type AuthCallback func(ctx context.Context, credentials *ClientCredentials) (vapi.Principal, error)
 
 type AuthenticatorConfigOption func(*Authenticator) error
 
 func NewAuthenticator(configOptions ...AuthenticatorConfigOption) (*Authenticator, error) {
-	authenticator := &Authenticator{authCallbacks: make(map[string]AuthCallback)}
+	authenticator := &Authenticator{}
 	for _, option := range configOptions {
 		if option == nil {
 			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, errors.New("nil authenticator config option"))
@@ -27,37 +26,53 @@ func NewAuthenticator(configOptions ...AuthenticatorConfigOption) (*Authenticato
 			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, err)
 		}
 	}
-	if len(authenticator.authCallbacks) == 0 {
-		return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, errors.New("no client credentials authentication callbacks"))
+	if authenticator.reader == nil {
+		reader, err := NewReader()
+		if err != nil {
+			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, err)
+		}
+		authenticator.reader = reader
+	}
+	if authenticator.validator == nil {
+		validator, err := NewValidator()
+		if err != nil {
+			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, err)
+		}
+		authenticator.validator = validator
+	}
+	if authenticator.artifactAuthenticator == nil {
+		artifactAuthenticator, err := NewArtifactAuthenticator()
+		if err != nil {
+			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, err)
+		}
+		authenticator.artifactAuthenticator = artifactAuthenticator
 	}
 	return authenticator, nil
 }
 
 // Authenticate implements [vapi.Authenticator].
-func (a *Authenticator) Authenticate(ctx context.Context, credentials *ClientCredentials) (vapi.Principal, error) {
-	if a == nil || a.authCallbacks == nil || len(a.authCallbacks) == 0 {
+func (a *Authenticator) Authenticate(ctx context.Context, request *http.Request) (vapi.Principal, error) {
+	if a == nil || a.reader == nil || a.validator == nil || a.artifactAuthenticator == nil {
 		return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, errors.New("cannot authenticate client credentials with invalid authenticator configuration"))
 	}
-	if credentials == nil {
-		return nil, vapi.NewErrorCategory(vapi.ErrMalformed, errors.New("cannot authenticate nil client credentials"))
-	}
-	if a.validator != nil {
-		if err := a.validator.Validate(ctx, credentials); err != nil {
-			return nil, vapi.NewErrorCategory(vapi.ErrUnauthenticated, fmt.Errorf("validate client credentials: %w", err))
-		}
-	}
-	callback, ok := a.authCallbacks[credentials.AuthMethod]
-	if !ok {
-		return nil, vapi.NewErrorCategory(vapi.ErrUnauthenticated, fmt.Errorf("no authentication callback for client authentication method %q", credentials.AuthMethod))
-	}
-	principal, err := callback(ctx, credentials)
+	credentials, err := a.reader.ReadArtifact(ctx, request)
 	if err != nil {
-		return nil, vapi.NewErrorCategory(vapi.ErrUnauthenticated, fmt.Errorf("authenticate client credentials using method %q: %w", credentials.AuthMethod, err))
+		if errors.Is(err, vapi.ErrNotApplicable) {
+			return nil, err
+		}
+		return nil, vapi.NewErrorCategory(vapi.ErrUnauthenticated, err)
+	}
+	if err := a.validator.Validate(ctx, credentials); err != nil {
+		return nil, vapi.NewErrorCategory(vapi.ErrUnauthenticated, err)
+	}
+	principal, err := a.artifactAuthenticator.AuthenticateArtifact(ctx, credentials)
+	if err != nil {
+		return nil, vapi.NewErrorCategory(vapi.ErrUnauthenticated, err)
 	}
 	if principal == nil {
-		return nil, vapi.NewErrorCategory(vapi.ErrUnauthenticated, fmt.Errorf("authentication callback for client authentication method %q returned nil principal", credentials.AuthMethod))
+		return nil, vapi.NewErrorCategory(vapi.ErrUnauthenticated, errors.New("client credentials artifact authenticator returned nil principal"))
 	}
 	return principal, nil
 }
 
-var _ vapi.Authenticator[*ClientCredentials] = &Authenticator{}
+var _ vapi.Authenticator[*http.Request] = &Authenticator{}

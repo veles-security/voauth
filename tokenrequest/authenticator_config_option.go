@@ -47,27 +47,27 @@ func WithAuthenticatorValidatorOptions(options ...ValidatorConfigOption) Authent
 	}
 }
 
-// WithAuthenticatorClientAuthenticator configures the optional authenticator
-// for the client credentials carried by the token request.
-func WithAuthenticatorClientAuthenticator(authenticator vapi.Authenticator[*clientcredentials.ClientCredentials]) AuthenticatorConfigOption {
+// WithAuthenticatorClientArtifactAuthenticator configures the optional
+// authenticator for the client credentials artifact carried by the token request.
+func WithAuthenticatorClientArtifactAuthenticator(authenticator vapi.ArtifactAuthenticator[*clientcredentials.ClientCredentials, clientcredentials.ArtifactAuthenticatorOption]) AuthenticatorConfigOption {
 	return func(tokenRequestAuthenticator *Authenticator) error {
 		if authenticator == nil {
 			return errors.New("nil client credentials authenticator")
 		}
-		tokenRequestAuthenticator.clientAuthenticator = authenticator
+		tokenRequestAuthenticator.clientArtifactAuthenticator = authenticator
 		return nil
 	}
 }
 
-// WithAuthenticatorClientAuthenticatorOptions constructs the optional client
-// authenticator with the provided configuration options.
-func WithAuthenticatorClientAuthenticatorOptions(options ...clientcredentials.AuthenticatorConfigOption) AuthenticatorConfigOption {
+// WithAuthenticatorClientArtifactAuthenticatorOptions constructs the optional
+// client artifact authenticator with the provided configuration options.
+func WithAuthenticatorClientArtifactAuthenticatorOptions(options ...clientcredentials.ArtifactAuthenticatorConfigOption) AuthenticatorConfigOption {
 	return func(authenticator *Authenticator) error {
-		clientAuthenticator, err := clientcredentials.NewAuthenticator(options...)
+		clientAuthenticator, err := clientcredentials.NewArtifactAuthenticator(options...)
 		if err != nil {
 			return err
 		}
-		authenticator.clientAuthenticator = clientAuthenticator
+		authenticator.clientArtifactAuthenticator = clientAuthenticator
 		return nil
 	}
 }
