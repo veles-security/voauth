@@ -12,7 +12,9 @@ import (
 	"github.com/veles-security/voauth/token"
 )
 
-type Decoder struct{}
+type Decoder struct {
+	runtimeOptions []DecoderOption
+}
 
 type DecoderConfigOption func(*Decoder) error
 
@@ -42,9 +44,13 @@ func (d *Decoder) Decode(ctx context.Context, payload []byte, options ...Decoder
 		return nil, vapi.NewErrorCategory(vapi.ErrMalformed, errors.New("cannot decode nil JWT payload"))
 	}
 
+	allOptions := make([]DecoderOption, 0, len(d.runtimeOptions)+len(options))
+	allOptions = append(allOptions, d.runtimeOptions...)
+	allOptions = append(allOptions, options...)
+
 	next := d.decode
-	for index := len(options) - 1; index >= 0; index-- {
-		option := options[index]
+	for index := len(allOptions) - 1; index >= 0; index-- {
+		option := allOptions[index]
 		if option == nil {
 			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, fmt.Errorf("nil decoder option at index %d", index))
 		}
