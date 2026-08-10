@@ -42,13 +42,26 @@ func WithAuthenticatorValidatorOptions(options ...ValidatorConfigOption) Authent
 	}
 }
 
-// WithAuthenticatorExtractor configures the JWT principal extractor.
-func WithAuthenticatorExtractor(extractor vapi.PrincipalExtractor[*Token, JwtPrincipalMapper]) AuthenticatorConfigOption {
+// WithAuthenticatorArtifactAuthenticator configures the JWT artifact authenticator.
+func WithAuthenticatorArtifactAuthenticator(artifactAuthenticator vapi.ArtifactAuthenticator[*Token, ArtifactAuthenticatorOption]) AuthenticatorConfigOption {
 	return func(authenticator *Authenticator) error {
-		if extractor == nil {
-			return errors.New("nil JWT principal extractor")
+		if artifactAuthenticator == nil {
+			return errors.New("nil JWT artifact authenticator")
 		}
-		authenticator.extractor = extractor
+		authenticator.artifactAuthenticator = artifactAuthenticator
+		return nil
+	}
+}
+
+// WithAuthenticatorArtifactAuthenticatorOptions configures the JWT artifact
+// authenticator by constructing it with the provided configuration options.
+func WithAuthenticatorArtifactAuthenticatorOptions(options ...ArtifactAuthenticatorConfigOption) AuthenticatorConfigOption {
+	return func(authenticator *Authenticator) error {
+		artifactAuthenticator, err := NewArtifactAuthenticator(options...)
+		if err != nil {
+			return err
+		}
+		authenticator.artifactAuthenticator = artifactAuthenticator
 		return nil
 	}
 }

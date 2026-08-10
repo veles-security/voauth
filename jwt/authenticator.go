@@ -9,9 +9,9 @@ import (
 )
 
 type Authenticator struct {
-	reader    vapi.Reader[*http.Request, *Token, ReaderOption]
-	validator vapi.Validator[*Token, ValidatorOption]
-	extractor vapi.PrincipalExtractor[*Token, JwtPrincipalMapper]
+	reader                vapi.Reader[*http.Request, *Token, ReaderOption]
+	validator             vapi.Validator[*Token, ValidatorOption]
+	artifactAuthenticator vapi.ArtifactAuthenticator[*Token, ArtifactAuthenticatorOption]
 }
 
 type AuthenticatorConfigOption func(*Authenticator) error
@@ -40,8 +40,12 @@ func NewAuthenticator(configOptions ...AuthenticatorConfigOption) (*Authenticato
 		}
 		authenticator.validator = validator
 	}
-	if authenticator.extractor == nil {
-		return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, errors.New("nil JWT principal extractor"))
+	if authenticator.artifactAuthenticator == nil {
+		artifactAuthenticator, err := NewArtifactAuthenticator()
+		if err != nil {
+			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, err)
+		}
+		authenticator.artifactAuthenticator = artifactAuthenticator
 	}
 	return authenticator, nil
 }
@@ -58,7 +62,7 @@ func (j *Authenticator) Authenticate(ctx context.Context, request *http.Request)
 	if err := j.validator.Validate(ctx, token); err != nil {
 		return nil, vapi.NewErrorCategory(vapi.ErrUnauthenticated, err)
 	}
-	principal, err := j.extractor.ExtractPrincipal(ctx, token)
+	principal, err := j.artifactAuthenticator.AuthenticateArtifact(ctx, token)
 	if err != nil {
 		return nil, vapi.NewErrorCategory(vapi.ErrUnauthenticated, err)
 	}
