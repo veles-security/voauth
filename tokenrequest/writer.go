@@ -18,7 +18,8 @@ import (
 type Writer struct {
 	tokenEncoder            token.AnyTokenEncoder
 	assertionTokenEncoder   token.AnyTokenEncoder
-	clientCredentialsWriter *clientcredentials.Writer
+	clientCredentialsWriter vapi.Writer[*http.Request, *clientcredentials.ClientCredentials, clientcredentials.WriterOption]
+	runtimeOptions          []WriterOption
 }
 
 type WriterConfigOption func(*Writer) error
@@ -40,21 +41,21 @@ func NewWriter(configOptions ...WriterConfigOption) (*Writer, error) {
 	if writer.clientCredentialsWriter == nil {
 		clientCredentialsWriter, err := clientcredentials.NewWriter()
 		if err != nil {
-			return nil, err
+			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, err)
 		}
 		writer.clientCredentialsWriter = clientCredentialsWriter
 	}
 	if writer.tokenEncoder == nil {
 		encoder, err := jwt.NewEncoder()
 		if err != nil {
-			return nil, err
+			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, err)
 		}
 		writer.tokenEncoder = encoder
 	}
 	if writer.assertionTokenEncoder == nil {
 		encoder, err := jwt.NewEncoder()
 		if err != nil {
-			return nil, err
+			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, err)
 		}
 		writer.assertionTokenEncoder = encoder
 	}
@@ -64,7 +65,7 @@ func NewWriter(configOptions ...WriterConfigOption) (*Writer, error) {
 // WriteArtifact implements [vapi.Writer].
 func (w *Writer) WriteArtifact(ctx context.Context, carrierWriter *http.Request, artifact *TokenRequest, options ...WriterOption) error {
 	if w == nil || w.clientCredentialsWriter == nil {
-		return vapi.NewErrorCategory(vapi.ErrMisconfigured, errors.New("cannot write token request with nil client credentials encoder"))
+		return vapi.NewErrorCategory(vapi.ErrMisconfigured, errors.New("cannot write token request with nil client credentials writer"))
 	}
 	if carrierWriter == nil {
 		return vapi.NewErrorCategory(vapi.ErrMalformed, errors.New("cannot write token request to nil request"))
@@ -79,9 +80,13 @@ func (w *Writer) WriteArtifact(ctx context.Context, carrierWriter *http.Request,
 		return vapi.NewErrorCategory(vapi.ErrMisconfigured, errors.New("cannot write bearer assertion with nil assertion token encoder"))
 	}
 
+	allOptions := make([]WriterOption, 0, len(w.runtimeOptions)+len(options))
+	allOptions = append(allOptions, w.runtimeOptions...)
+	allOptions = append(allOptions, options...)
+
 	next := w.writeArtifact
-	for index := len(options) - 1; index >= 0; index-- {
-		option := options[index]
+	for index := len(allOptions) - 1; index >= 0; index-- {
+		option := allOptions[index]
 		if option == nil {
 			return vapi.NewErrorCategory(vapi.ErrMisconfigured, fmt.Errorf("nil writer option at index %d", index))
 		}

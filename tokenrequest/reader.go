@@ -15,7 +15,8 @@ import (
 type Reader struct {
 	tokenDecoder            token.AnyTokenDecoder
 	assertionTokenDecoder   token.AnyTokenDecoder
-	clientCredentialsReader *clientcredentials.Reader
+	clientCredentialsReader vapi.Reader[*http.Request, *clientcredentials.ClientCredentials, clientcredentials.ReaderOption]
+	runtimeOptions          []ReaderOption
 }
 
 type ReaderConfigOption func(*Reader) error
@@ -37,21 +38,21 @@ func NewReader(configOptions ...ReaderConfigOption) (*Reader, error) {
 	if reader.clientCredentialsReader == nil {
 		credentialsReader, err := clientcredentials.NewReader()
 		if err != nil {
-			return nil, err
+			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, err)
 		}
 		reader.clientCredentialsReader = credentialsReader
 	}
 	if reader.tokenDecoder == nil {
 		decoder, err := jwt.NewDecoder()
 		if err != nil {
-			return nil, err
+			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, err)
 		}
 		reader.tokenDecoder = decoder
 	}
 	if reader.assertionTokenDecoder == nil {
 		decoder, err := jwt.NewDecoder()
 		if err != nil {
-			return nil, err
+			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, err)
 		}
 		reader.assertionTokenDecoder = decoder
 	}
@@ -67,12 +68,16 @@ func (r *Reader) ReadArtifact(ctx context.Context, carrier *http.Request, option
 		return nil, vapi.NewErrorCategory(vapi.ErrMalformed, errors.New("cannot read token request from nil request"))
 	}
 
+	allOptions := make([]ReaderOption, 0, len(r.runtimeOptions)+len(options))
+	allOptions = append(allOptions, r.runtimeOptions...)
+	allOptions = append(allOptions, options...)
+
 	next := r.readArtifact
-	for index := len(options) - 1; index >= 0; index-- {
-		if options[index] == nil {
+	for index := len(allOptions) - 1; index >= 0; index-- {
+		if allOptions[index] == nil {
 			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, fmt.Errorf("nil reader option at index %d", index))
 		}
-		wrapped := options[index](next)
+		wrapped := allOptions[index](next)
 		if wrapped == nil {
 			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, fmt.Errorf("reader option at index %d returned nil ReadFunc", index))
 		}
@@ -89,6 +94,9 @@ func (r *Reader) readArtifact(ctx context.Context, carrier *http.Request) (*Toke
 	request := &TokenRequest{GrantType: carrier.PostForm.Get("grant_type")}
 	credentials, err := r.clientCredentialsReader.ReadArtifact(ctx, carrier)
 	if err == nil {
+		if credentials == nil {
+			return nil, vapi.NewErrorCategory(vapi.ErrMalformed, errors.New("read client credentials returned nil artifact"))
+		}
 		request.ClientCredentials = *credentials
 	} else if !errors.Is(err, vapi.ErrNotApplicable) {
 		return nil, fmt.Errorf("read client credentials: %w", err)

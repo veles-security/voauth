@@ -7,6 +7,15 @@ import (
 	"github.com/veles-security/vapi"
 )
 
+// WithAuthenticatorRuntimeOptions configures authenticator options that are
+// applied to every Authenticate call.
+func WithAuthenticatorRuntimeOptions(options ...AuthenticatorOption) AuthenticatorConfigOption {
+	return func(authenticator *Authenticator) error {
+		authenticator.runtimeOptions = append([]AuthenticatorOption(nil), options...)
+		return nil
+	}
+}
+
 func WithAuthenticatorReader(reader vapi.Reader[*http.Request, *TokenRequest, ReaderOption]) AuthenticatorConfigOption {
 	return func(authenticator *Authenticator) error {
 		if reader == nil {

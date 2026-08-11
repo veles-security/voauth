@@ -71,10 +71,21 @@ func TestAuthenticator_Authenticate(t *testing.T) {
 	}
 
 	order := []string{}
+	decorate := func(name string) tokenrequest.AuthenticatorOption {
+		return func(next tokenrequest.AuthenticateFunc) tokenrequest.AuthenticateFunc {
+			return func(ctx context.Context, request *http.Request) (vapi.Principal, error) {
+				order = append(order, name+" before")
+				principal, err := next(ctx, request)
+				order = append(order, name+" after")
+				return principal, err
+			}
+		}
+	}
 	valid, err := tokenrequest.NewAuthenticator(
 		tokenrequest.WithAuthenticatorReader(&tokenRequestReaderStub{artifact: requestArtifact, order: &order}),
 		tokenrequest.WithAuthenticatorValidator(&tokenRequestValidatorStub{order: &order}),
 		tokenrequest.WithAuthenticatorResolver(&tokenRequestResolverStub{principal: want, order: &order}),
+		tokenrequest.WithAuthenticatorRuntimeOptions(decorate("runtime")),
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -99,6 +110,12 @@ func TestAuthenticator_Authenticate(t *testing.T) {
 		tokenrequest.WithAuthenticatorValidator(&tokenRequestValidatorStub{}),
 		tokenrequest.WithAuthenticatorResolver(&tokenRequestResolverStub{}),
 	)
+	nilRuntimeOption, _ := tokenrequest.NewAuthenticator(
+		tokenrequest.WithAuthenticatorRuntimeOptions(nil),
+	)
+	nilRuntimeDecorator, _ := tokenrequest.NewAuthenticator(
+		tokenrequest.WithAuthenticatorRuntimeOptions(func(tokenrequest.AuthenticateFunc) tokenrequest.AuthenticateFunc { return nil }),
+	)
 
 	tests := []struct {
 		name          string
@@ -110,6 +127,8 @@ func TestAuthenticator_Authenticate(t *testing.T) {
 		{name: "validation failure", authenticator: validateFails, assert: assertUnauthenticated},
 		{name: "resolution failure", authenticator: resolveFails, assert: assertUnauthenticated},
 		{name: "nil principal", authenticator: resolveNil, assert: assertUnauthenticated},
+		{name: "nil runtime option", authenticator: nilRuntimeOption, assert: assertMisconfigured},
+		{name: "runtime option returns nil", authenticator: nilRuntimeDecorator, assert: assertMisconfigured},
 		{name: "nil receiver", assert: assertMisconfigured},
 	}
 	for _, tt := range tests {
@@ -117,7 +136,7 @@ func TestAuthenticator_Authenticate(t *testing.T) {
 			order = order[:0]
 			got, gotErr := tt.authenticator.Authenticate(context.Background(), &http.Request{})
 			tt.assert(t, got, gotErr)
-			if tt.name == "reads validates and resolves" && !reflect.DeepEqual(order, []string{"read", "validate", "resolve"}) {
+			if tt.name == "reads validates and resolves" && !reflect.DeepEqual(order, []string{"runtime before", "read", "validate", "resolve", "runtime after"}) {
 				t.Errorf("authentication order = %#v", order)
 			}
 		})
@@ -144,6 +163,7 @@ func TestNewAuthenticator(t *testing.T) {
 		{name: "reader options", options: []tokenrequest.AuthenticatorConfigOption{tokenrequest.WithAuthenticatorReaderOptions()}, assert: assertCreated},
 		{name: "validator options", options: []tokenrequest.AuthenticatorConfigOption{tokenrequest.WithAuthenticatorValidatorOptions()}, assert: assertCreated},
 		{name: "resolver options", options: []tokenrequest.AuthenticatorConfigOption{tokenrequest.WithAuthenticatorResolverOptions()}, assert: assertCreated},
+		{name: "runtime options", options: []tokenrequest.AuthenticatorConfigOption{tokenrequest.WithAuthenticatorRuntimeOptions()}, assert: assertCreated},
 		{name: "nil option", options: []tokenrequest.AuthenticatorConfigOption{nil}, assert: assertMisconfigured},
 		{name: "nil reader", options: []tokenrequest.AuthenticatorConfigOption{tokenrequest.WithAuthenticatorReader(nil)}, assert: assertMisconfigured},
 		{name: "nil validator", options: []tokenrequest.AuthenticatorConfigOption{tokenrequest.WithAuthenticatorValidator(nil)}, assert: assertMisconfigured},

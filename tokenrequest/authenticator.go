@@ -3,18 +3,24 @@ package tokenrequest
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/veles-security/vapi"
 )
 
 type Authenticator struct {
-	reader    vapi.Reader[*http.Request, *TokenRequest, ReaderOption]
-	validator vapi.Validator[*TokenRequest, ValidatorOption]
-	resolver  vapi.Resolver[*TokenRequest, ResolverOption]
+	reader         vapi.Reader[*http.Request, *TokenRequest, ReaderOption]
+	validator      vapi.Validator[*TokenRequest, ValidatorOption]
+	resolver       vapi.Resolver[*TokenRequest, ResolverOption]
+	runtimeOptions []AuthenticatorOption
 }
 
 type AuthenticatorConfigOption func(*Authenticator) error
+
+type AuthenticateFunc func(ctx context.Context, request *http.Request) (vapi.Principal, error)
+
+type AuthenticatorOption func(next AuthenticateFunc) AuthenticateFunc
 
 func NewAuthenticator(configOptions ...AuthenticatorConfigOption) (*Authenticator, error) {
 	authenticator := &Authenticator{}
@@ -56,6 +62,23 @@ func (a *Authenticator) Authenticate(ctx context.Context, request *http.Request)
 		return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, errors.New("cannot authenticate token request with invalid authenticator configuration"))
 	}
 
+	next := a.authenticate
+	for index := len(a.runtimeOptions) - 1; index >= 0; index-- {
+		option := a.runtimeOptions[index]
+		if option == nil {
+			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, fmt.Errorf("nil authenticator option at index %d", index))
+		}
+		wrapped := option(next)
+		if wrapped == nil {
+			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, fmt.Errorf("authenticator option at index %d returned nil AuthenticateFunc", index))
+		}
+		next = wrapped
+	}
+
+	return next(ctx, request)
+}
+
+func (a *Authenticator) authenticate(ctx context.Context, request *http.Request) (vapi.Principal, error) {
 	artifact, err := a.reader.ReadArtifact(ctx, request)
 	if err != nil {
 		return nil, err
