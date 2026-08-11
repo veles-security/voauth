@@ -58,17 +58,14 @@ func (a *Authenticator) Authenticate(ctx context.Context, request *http.Request)
 
 	artifact, err := a.reader.ReadArtifact(ctx, request)
 	if err != nil {
-		if errors.Is(err, vapi.ErrNotApplicable) {
-			return nil, err
-		}
-		return nil, vapi.NewErrorCategory(vapi.ErrUnauthenticated, err)
+		return nil, err
 	}
 	if err := a.validator.Validate(ctx, artifact); err != nil {
-		return nil, vapi.NewErrorCategory(vapi.ErrUnauthenticated, err)
+		return nil, err
 	}
 	principal, err := a.resolver.Resolve(ctx, artifact)
 	if err != nil {
-		return nil, vapi.NewErrorCategory(vapi.ErrUnauthenticated, err)
+		return nil, err
 	}
 	if principal == nil {
 		return nil, vapi.NewErrorCategory(vapi.ErrUnauthenticated, errors.New("token request resolver returned nil principal"))

@@ -49,7 +49,7 @@ func (a *Resolver) Resolve(ctx context.Context, artifact *ClientCredentials, opt
 }
 
 func (*Resolver) resolve(_ context.Context, artifact *ClientCredentials) (vapi.Principal, error) {
-	return nil, vapi.NewErrorCategory(vapi.ErrUnauthenticated, fmt.Errorf("no resolver option for client authentication method %q", artifact.AuthMethod))
+	return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, fmt.Errorf("no resolver option for client authentication method %q", artifact.AuthMethod))
 }
 
 var _ vapi.Resolver[*ClientCredentials, ResolverOption] = &Resolver{}

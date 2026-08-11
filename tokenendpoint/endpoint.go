@@ -31,15 +31,13 @@ type IssuerOptions struct {
 }
 
 // IssuerOptionsCallback derives token-specific issue options from the token
-// subject and the authenticated token request.
-type IssuerOptionsCallback func(context.Context, vapi.ScopedPrincipal, *tokenrequest.TokenRequest) (IssuerOptions, error)
+// subject.
+type IssuerOptionsCallback func(context.Context, vapi.ScopedPrincipal) (IssuerOptions, error)
 
 type TokenEndpointConfigOption func(*TokenEndpoint) error
 
 // TokenEndpoint implements an OAuth 2.0 token endpoint HTTP handler.
 type TokenEndpoint struct {
-	requestReader         *tokenrequest.Reader
-	requestReaderOptions  []tokenrequest.ReaderConfigOption
 	requestAuthenticator  vapi.Authenticator[*http.Request]
 	issuer                vapi.Issuer[jwt.IssuerOption, *jwt.Token]
 	issuerOptionsCallback IssuerOptionsCallback
@@ -58,17 +56,18 @@ func New(configOptions ...TokenEndpointConfigOption) (*TokenEndpoint, error) {
 			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, fmt.Errorf("apply token endpoint config option at index %d: %w", index, err))
 		}
 	}
-	if endpoint.requestAuthenticator == nil {
-		return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, errors.New("missing token request authenticator"))
-	}
 	if endpoint.issuerOptionsCallback == nil {
-		return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, errors.New("missing issuer options callback"))
+		endpoint.issuerOptionsCallback = func(context.Context, vapi.ScopedPrincipal) (IssuerOptions, error) {
+			return IssuerOptions{}, nil
+		}
 	}
 
 	var err error
-	endpoint.requestReader, err = tokenrequest.NewReader(endpoint.requestReaderOptions...)
-	if err != nil {
-		return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, fmt.Errorf("create token request reader: %w", err))
+	if endpoint.requestAuthenticator == nil {
+		endpoint.requestAuthenticator, err = tokenrequest.NewAuthenticator()
+		if err != nil {
+			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, fmt.Errorf("create token request authenticator: %w", err))
+		}
 	}
 	if endpoint.issuer == nil {
 		endpoint.issuer, err = jwt.NewIssuer()
@@ -88,7 +87,7 @@ func New(configOptions ...TokenEndpointConfigOption) (*TokenEndpoint, error) {
 // ServeHTTP authenticates a token request, issues the configured tokens for
 // its scoped subject, and writes the OAuth token response.
 func (e *TokenEndpoint) ServeHTTP(response http.ResponseWriter, request *http.Request) {
-	if e == nil || e.requestReader == nil || e.requestAuthenticator == nil || e.issuer == nil || e.responseWriter == nil || e.issuerOptionsCallback == nil || len(e.issuedTokens) == 0 {
+	if e == nil || e.requestAuthenticator == nil || e.issuer == nil || e.responseWriter == nil || e.issuerOptionsCallback == nil || len(e.issuedTokens) == 0 {
 		http.Error(response, "internal server error", http.StatusInternalServerError)
 		return
 	}
@@ -102,11 +101,6 @@ func (e *TokenEndpoint) ServeHTTP(response http.ResponseWriter, request *http.Re
 		return
 	}
 
-	tokenRequest, err := e.requestReader.ReadArtifact(request.Context(), request)
-	if err != nil {
-		e.handleError(response, err)
-		return
-	}
 	principal, err := e.requestAuthenticator.Authenticate(request.Context(), request)
 	if err != nil {
 		e.handleError(response, err)
@@ -117,7 +111,7 @@ func (e *TokenEndpoint) ServeHTTP(response http.ResponseWriter, request *http.Re
 		e.handleError(response, vapi.NewErrorCategory(vapi.ErrPolicyRejected, fmt.Errorf("token request authenticator returned non-scoped principal of type %T", principal)))
 		return
 	}
-	issuerOptions, err := e.issuerOptionsCallback(request.Context(), scopedPrincipal, tokenRequest)
+	issuerOptions, err := e.issuerOptionsCallback(request.Context(), scopedPrincipal)
 	if err != nil {
 		e.handleError(response, err)
 		return

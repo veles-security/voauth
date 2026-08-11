@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"slices"
 
 	"github.com/veles-security/vapi"
 	"github.com/veles-security/voauth/jwt"
@@ -12,15 +11,6 @@ import (
 	"github.com/veles-security/voauth/tokenresponse"
 )
 
-// WithTokenRequestReaderOptions configures the token request reader constructed by the endpoint.
-func WithTokenRequestReaderOptions(options ...tokenrequest.ReaderConfigOption) TokenEndpointConfigOption {
-	return func(endpoint *TokenEndpoint) error {
-		endpoint.requestReaderOptions = append(endpoint.requestReaderOptions, slices.Clone(options)...)
-		return nil
-	}
-}
-
-// WithTokenRequestAuthenticator binds the token request authenticator.
 func WithTokenRequestAuthenticator(authenticator vapi.Authenticator[*http.Request]) TokenEndpointConfigOption {
 	return func(endpoint *TokenEndpoint) error {
 		if authenticator == nil {
@@ -31,7 +21,6 @@ func WithTokenRequestAuthenticator(authenticator vapi.Authenticator[*http.Reques
 	}
 }
 
-// WithTokenRequestAuthenticatorOptions constructs and binds the token request authenticator.
 func WithTokenRequestAuthenticatorOptions(options ...tokenrequest.AuthenticatorConfigOption) TokenEndpointConfigOption {
 	return func(endpoint *TokenEndpoint) error {
 		authenticator, err := tokenrequest.NewAuthenticator(options...)
@@ -43,7 +32,6 @@ func WithTokenRequestAuthenticatorOptions(options ...tokenrequest.AuthenticatorC
 	}
 }
 
-// WithIssuer binds the JWT issuer.
 func WithIssuer(issuer vapi.Issuer[jwt.IssuerOption, *jwt.Token]) TokenEndpointConfigOption {
 	return func(endpoint *TokenEndpoint) error {
 		if issuer == nil {
@@ -54,7 +42,6 @@ func WithIssuer(issuer vapi.Issuer[jwt.IssuerOption, *jwt.Token]) TokenEndpointC
 	}
 }
 
-// WithIssuerOptions constructs and binds the JWT issuer.
 func WithIssuerOptions(options ...jwt.IssuerConfigOption) TokenEndpointConfigOption {
 	return func(endpoint *TokenEndpoint) error {
 		issuer, err := jwt.NewIssuer(options...)
@@ -66,7 +53,6 @@ func WithIssuerOptions(options ...jwt.IssuerConfigOption) TokenEndpointConfigOpt
 	}
 }
 
-// WithTokenResponseWriter binds the token response writer.
 func WithTokenResponseWriter(writer vapi.Writer[http.ResponseWriter, *tokenresponse.TokenResponse, tokenresponse.WriterOption]) TokenEndpointConfigOption {
 	return func(endpoint *TokenEndpoint) error {
 		if writer == nil {
@@ -77,7 +63,6 @@ func WithTokenResponseWriter(writer vapi.Writer[http.ResponseWriter, *tokenrespo
 	}
 }
 
-// WithTokenResponseWriterOptions constructs and binds the token response writer.
 func WithTokenResponseWriterOptions(options ...tokenresponse.WriterConfigOption) TokenEndpointConfigOption {
 	return func(endpoint *TokenEndpoint) error {
 		writer, err := tokenresponse.NewWriter(options...)
@@ -89,7 +74,6 @@ func WithTokenResponseWriterOptions(options ...tokenresponse.WriterConfigOption)
 	}
 }
 
-// WithIssuedTokens configures which token fields are issued and returned.
 func WithIssuedTokens(tokens ...IssuedToken) TokenEndpointConfigOption {
 	return func(endpoint *TokenEndpoint) error {
 		if len(tokens) == 0 {
@@ -109,8 +93,6 @@ func WithIssuedTokens(tokens ...IssuedToken) TokenEndpointConfigOption {
 	}
 }
 
-// WithIssuerOptionsCallback configures application policy that prepares the
-// token-specific issue options from the scoped principal and token request.
 func WithIssuerOptionsCallback(callback IssuerOptionsCallback) TokenEndpointConfigOption {
 	return func(endpoint *TokenEndpoint) error {
 		if callback == nil {

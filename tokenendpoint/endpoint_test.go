@@ -34,7 +34,7 @@ func (a *requestAuthenticatorStub) Authenticate(context.Context, *http.Request) 
 func TestNew(t *testing.T) {
 	principal := sub.NewBasePrincipal("issuer", "subject", "user").WithGrantedScopes("read")
 	authenticator := &requestAuthenticatorStub{principal: principal}
-	callback := tokenendpoint.IssuerOptionsCallback(func(context.Context, vapi.ScopedPrincipal, *tokenrequest.TokenRequest) (tokenendpoint.IssuerOptions, error) {
+	callback := tokenendpoint.IssuerOptionsCallback(func(context.Context, vapi.ScopedPrincipal) (tokenendpoint.IssuerOptions, error) {
 		return tokenendpoint.IssuerOptions{}, nil
 	})
 	grantResolverOption := tokenrequest.ResolverOption(func(_ tokenrequest.ResolveFunc) tokenrequest.ResolveFunc {
@@ -65,6 +65,7 @@ func TestNew(t *testing.T) {
 		options []tokenendpoint.TokenEndpointConfigOption
 		assert  func(*testing.T, *tokenendpoint.TokenEndpoint, error)
 	}{
+		{name: "defaults", assert: assertCreated},
 		{name: "direct bindings", options: []tokenendpoint.TokenEndpointConfigOption{tokenendpoint.WithTokenRequestAuthenticator(authenticator), tokenendpoint.WithIssuer(issuer), tokenendpoint.WithTokenResponseWriter(writer), tokenendpoint.WithIssuerOptionsCallback(callback)}, assert: assertCreated},
 		{name: "configured bindings", options: []tokenendpoint.TokenEndpointConfigOption{
 			tokenendpoint.WithTokenRequestAuthenticatorOptions(tokenrequest.WithAuthenticatorResolverOptions(tokenrequest.WithResolverRuntimeOptions(grantResolverOption))),
@@ -73,11 +74,9 @@ func TestNew(t *testing.T) {
 			tokenendpoint.WithIssuedTokens(tokenendpoint.IssuedAccessToken, tokenendpoint.IssuedRefreshToken, tokenendpoint.IssuedIDToken),
 			tokenendpoint.WithIssuerOptionsCallback(callback),
 		}, assert: assertCreated},
-		{name: "missing authenticator", options: []tokenendpoint.TokenEndpointConfigOption{tokenendpoint.WithIssuerOptionsCallback(callback)}, assert: assertMisconfigured},
-		{name: "missing issuer callback", options: []tokenendpoint.TokenEndpointConfigOption{tokenendpoint.WithTokenRequestAuthenticator(authenticator)}, assert: assertMisconfigured},
 		{name: "nil endpoint option", options: []tokenendpoint.TokenEndpointConfigOption{nil}, assert: assertMisconfigured},
 		{name: "nil authenticator", options: []tokenendpoint.TokenEndpointConfigOption{tokenendpoint.WithTokenRequestAuthenticator(nil)}, assert: assertMisconfigured},
-		{name: "invalid authenticator options", options: []tokenendpoint.TokenEndpointConfigOption{tokenendpoint.WithTokenRequestAuthenticatorOptions(tokenrequest.AuthenticatorConfigOption(nil))}, assert: assertMisconfigured},
+		{name: "invalid authenticator options", options: []tokenendpoint.TokenEndpointConfigOption{tokenendpoint.WithTokenRequestAuthenticatorOptions(nil)}, assert: assertMisconfigured},
 		{name: "nil issuer", options: []tokenendpoint.TokenEndpointConfigOption{tokenendpoint.WithIssuer(nil)}, assert: assertMisconfigured},
 		{name: "invalid issuer options", options: []tokenendpoint.TokenEndpointConfigOption{tokenendpoint.WithIssuerOptions(jwt.IssuerConfigOption(nil))}, assert: assertMisconfigured},
 		{name: "nil writer", options: []tokenendpoint.TokenEndpointConfigOption{tokenendpoint.WithTokenResponseWriter(nil)}, assert: assertMisconfigured},
@@ -137,8 +136,8 @@ func TestTokenEndpoint_ServeHTTP(t *testing.T) {
 			}
 		}
 	}
-	callback := tokenendpoint.IssuerOptionsCallback(func(_ context.Context, gotPrincipal vapi.ScopedPrincipal, request *tokenrequest.TokenRequest) (tokenendpoint.IssuerOptions, error) {
-		if gotPrincipal != principal || request.ClientCredentials.ClientId != "client-1" {
+	callback := tokenendpoint.IssuerOptionsCallback(func(_ context.Context, gotPrincipal vapi.ScopedPrincipal) (tokenendpoint.IssuerOptions, error) {
+		if gotPrincipal != principal {
 			return tokenendpoint.IssuerOptions{}, vapi.ErrInternal
 		}
 		return tokenendpoint.IssuerOptions{
@@ -171,7 +170,7 @@ func TestTokenEndpoint_ServeHTTP(t *testing.T) {
 				t.Fatalf("ServeHTTP() = status %d Allow %q, want 405 Allow POST", response.Code, response.Header().Get("Allow"))
 			}
 		}},
-		{name: "maps authentication failure", method: http.MethodPost, body: validForm.Encode(), options: []tokenendpoint.TokenEndpointConfigOption{
+		{name: "maps resolution failure", method: http.MethodPost, body: validForm.Encode(), options: []tokenendpoint.TokenEndpointConfigOption{
 			tokenendpoint.WithTokenRequestAuthenticator(&requestAuthenticatorStub{err: vapi.ErrUnauthenticated}), tokenendpoint.WithIssuerOptionsCallback(callback),
 		}, assertions: assertError(http.StatusUnauthorized, "invalid_client")},
 		{name: "rejects non-scoped principal", method: http.MethodPost, body: validForm.Encode(), options: []tokenendpoint.TokenEndpointConfigOption{
@@ -179,12 +178,12 @@ func TestTokenEndpoint_ServeHTTP(t *testing.T) {
 		}, assertions: assertError(http.StatusBadRequest, "invalid_grant")},
 		{name: "maps issuer callback failure", method: http.MethodPost, body: validForm.Encode(), options: []tokenendpoint.TokenEndpointConfigOption{
 			tokenendpoint.WithTokenRequestAuthenticator(&requestAuthenticatorStub{principal: principal}),
-			tokenendpoint.WithIssuerOptionsCallback(func(context.Context, vapi.ScopedPrincipal, *tokenrequest.TokenRequest) (tokenendpoint.IssuerOptions, error) {
+			tokenendpoint.WithIssuerOptionsCallback(func(context.Context, vapi.ScopedPrincipal) (tokenendpoint.IssuerOptions, error) {
 				return tokenendpoint.IssuerOptions{}, vapi.ErrPolicyRejected
 			}),
 		}, assertions: assertError(http.StatusBadRequest, "invalid_grant")},
 		{name: "rejects malformed form", method: http.MethodPost, body: "%", options: []tokenendpoint.TokenEndpointConfigOption{
-			tokenendpoint.WithTokenRequestAuthenticator(&requestAuthenticatorStub{principal: principal}), tokenendpoint.WithIssuerOptionsCallback(callback),
+			tokenendpoint.WithIssuerOptionsCallback(callback),
 		}, assertions: assertError(http.StatusBadRequest, "invalid_request")},
 	}
 	for _, tt := range tests {

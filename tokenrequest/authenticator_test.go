@@ -53,7 +53,7 @@ func (s *tokenRequestResolverStub) Resolve(context.Context, *tokenrequest.TokenR
 func TestAuthenticator_Authenticate(t *testing.T) {
 	requestArtifact := &tokenrequest.TokenRequest{GrantType: tokenrequest.ClientCredentialsGrantType}
 	want := sub.NewBasePrincipal("clients", "client-1", "service")
-	failure := errors.New("failure")
+	failure := vapi.NewErrorCategory(vapi.ErrUnauthenticated, errors.New("failure"))
 	assertAuthenticated := func(t *testing.T, got vapi.Principal, err error) {
 		if err != nil || got != want {
 			t.Fatalf("Authenticate() = (%#v, %v), want (%#v, nil)", got, err, want)
