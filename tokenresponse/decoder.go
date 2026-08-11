@@ -72,44 +72,50 @@ func (d *Decoder) decode(ctx context.Context, payload []byte) (*TokenResponse, e
 	if err := json.Unmarshal(payload, &representation); err != nil {
 		return nil, vapi.NewErrorCategory(vapi.ErrMalformed, fmt.Errorf("decode token response representation: %w", err))
 	}
-	if representation.AccessToken == "" {
-		return nil, vapi.NewErrorCategory(vapi.ErrMalformed, errors.New("missing token response access token"))
-	}
-
-	accessToken, err := d.tokenDecoder.DecodeAnyToken(ctx, []byte(representation.AccessToken))
-	if err != nil {
-		return nil, vapi.NewErrorCategory(vapi.ErrMalformed, fmt.Errorf("decode access token: %w", err))
-	}
-	if accessToken == nil {
-		return nil, vapi.NewErrorCategory(vapi.ErrMalformed, errors.New("decode access token returned nil artifact"))
-	}
 
 	result := &TokenResponse{
-		AccessToken:     accessToken,
 		TokenType:       representation.TokenType,
 		ExpiresIn:       time.Duration(representation.ExpiresIn) * time.Second,
 		Scope:           representation.Scope,
 		IssuedTokenType: representation.IssuedTokenType,
 		Resources:       representation.Resources,
 	}
+
+	if representation.AccessToken != "" {
+		accessToken, err := d.tokenDecoder.DecodeAnyToken(ctx, []byte(representation.AccessToken))
+		if err != nil {
+			return nil, vapi.NewErrorCategory(vapi.ErrMalformed, fmt.Errorf("decode access token: %w", err))
+		}
+		if accessToken == nil {
+			return nil, vapi.NewErrorCategory(vapi.ErrMalformed, errors.New("decode access token returned nil artifact"))
+		}
+		result.AccessToken = accessToken
+	}
 	if representation.RefreshToken != "" {
-		result.RefreshToken, err = d.tokenDecoder.DecodeAnyToken(ctx, []byte(representation.RefreshToken))
+		refreshToken, err := d.tokenDecoder.DecodeAnyToken(ctx, []byte(representation.RefreshToken))
 		if err != nil {
 			return nil, vapi.NewErrorCategory(vapi.ErrMalformed, fmt.Errorf("decode refresh token: %w", err))
 		}
-		if result.RefreshToken == nil {
+		if refreshToken == nil {
 			return nil, vapi.NewErrorCategory(vapi.ErrMalformed, errors.New("decode refresh token returned nil artifact"))
 		}
+		result.RefreshToken = refreshToken
 	}
 	if representation.IdToken != "" {
-		result.IdToken, err = d.tokenDecoder.DecodeAnyToken(ctx, []byte(representation.IdToken))
+		idToken, err := d.tokenDecoder.DecodeAnyToken(ctx, []byte(representation.IdToken))
 		if err != nil {
-			return nil, vapi.NewErrorCategory(vapi.ErrMalformed, fmt.Errorf("decode ID token: %w", err))
+			return nil, vapi.NewErrorCategory(vapi.ErrMalformed, fmt.Errorf("decode id token: %w", err))
 		}
-		if result.IdToken == nil {
-			return nil, vapi.NewErrorCategory(vapi.ErrMalformed, errors.New("decode ID token returned nil artifact"))
+		if idToken == nil {
+			return nil, vapi.NewErrorCategory(vapi.ErrMalformed, errors.New("decode id token returned nil artifact"))
 		}
+		result.IdToken = idToken
 	}
+
+	if result.AccessToken == nil && result.RefreshToken == nil && result.IdToken == nil {
+		return nil, vapi.NewErrorCategory(vapi.ErrMalformed, errors.New("no tokens"))
+	}
+
 	return result, nil
 }
 
