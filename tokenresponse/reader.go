@@ -11,7 +11,8 @@ import (
 )
 
 type Reader struct {
-	decoder vapi.Decoder[*TokenResponse, DecoderOption]
+	decoder        vapi.Decoder[*TokenResponse, DecoderOption]
+	runtimeOptions []ReaderOption
 }
 
 type ReaderConfigOption func(*Reader) error
@@ -52,9 +53,13 @@ func (r *Reader) ReadArtifact(ctx context.Context, carrier *http.Response, optio
 		return nil, vapi.NewErrorCategory(vapi.ErrMalformed, errors.New("cannot read token response with nil body"))
 	}
 
+	allOptions := make([]ReaderOption, 0, len(r.runtimeOptions)+len(options))
+	allOptions = append(allOptions, r.runtimeOptions...)
+	allOptions = append(allOptions, options...)
+
 	next := r.readArtifact
-	for index := len(options) - 1; index >= 0; index-- {
-		option := options[index]
+	for index := len(allOptions) - 1; index >= 0; index-- {
+		option := allOptions[index]
 		if option == nil {
 			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, fmt.Errorf("nil reader option at index %d", index))
 		}

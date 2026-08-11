@@ -13,7 +13,8 @@ import (
 )
 
 type Encoder struct {
-	tokenEncoder token.AnyTokenEncoder
+	tokenEncoder   token.AnyTokenEncoder
+	runtimeOptions []EncoderOption
 }
 
 type EncoderConfigOption func(*Encoder) error
@@ -23,23 +24,23 @@ type EncodeFunc func(ctx context.Context, artifact *TokenResponse, representatio
 type EncoderOption func(next EncodeFunc) EncodeFunc
 
 func NewEncoder(configOptions ...EncoderConfigOption) (*Encoder, error) {
-	writer := &Encoder{}
+	encoder := &Encoder{}
 	for _, option := range configOptions {
 		if option == nil {
-			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, errors.New("nil writer config option"))
+			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, errors.New("nil encoder config option"))
 		}
-		if err := option(writer); err != nil {
+		if err := option(encoder); err != nil {
 			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, err)
 		}
 	}
-	if writer.tokenEncoder == nil {
-		tokenEcoder, err := jwt.NewEncoder()
+	if encoder.tokenEncoder == nil {
+		tokenEncoder, err := jwt.NewEncoder()
 		if err != nil {
-			return nil, err
+			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, fmt.Errorf("create default token encoder: %w", err))
 		}
-		writer.tokenEncoder = tokenEcoder
+		encoder.tokenEncoder = tokenEncoder
 	}
-	return writer, nil
+	return encoder, nil
 }
 
 // WriteArtifact implements [vapi.Encoder].
@@ -54,13 +55,17 @@ func (e *Encoder) Encode(ctx context.Context, artifact *TokenResponse, options .
 		return nil, vapi.NewErrorCategory(vapi.ErrMalformed, errors.New("cannot encode token response without a token"))
 	}
 
+	allOptions := make([]EncoderOption, 0, len(e.runtimeOptions)+len(options))
+	allOptions = append(allOptions, e.runtimeOptions...)
+	allOptions = append(allOptions, options...)
+
 	representation := &TokenResponseRepresentation{}
 	next := e.encode
-	for index := len(options) - 1; index >= 0; index-- {
-		if options[index] == nil {
+	for index := len(allOptions) - 1; index >= 0; index-- {
+		if allOptions[index] == nil {
 			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, fmt.Errorf("nil encoder option at index %d", index))
 		}
-		next = options[index](next)
+		next = allOptions[index](next)
 		if next == nil {
 			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, fmt.Errorf("encoder option at index %d returned nil EncodeFunc", index))
 		}
