@@ -3,7 +3,6 @@ package jwt
 import (
 	"context"
 	"crypto/rand"
-	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -11,11 +10,11 @@ import (
 	"time"
 
 	"github.com/veles-security/vapi"
-	"github.com/veles-security/vapi/sig"
+	"github.com/veles-security/vcrypt/jws"
 )
 
 type Issuer struct {
-	signer         *sig.Signer
+	signer         vapi.Signer[jws.SignerOption, jws.JWS]
 	runtimeOptions []IssuerOption
 }
 
@@ -79,27 +78,22 @@ func (j *Issuer) issue(ctx context.Context, token *Token) error {
 		token.signature = nil
 		return nil
 	}
-	algorithm, err := j.signer.Alg.ToOAuth()
-	if err != nil {
-		return vapi.NewErrorCategory(vapi.ErrMisconfigured, fmt.Errorf("encode JWT signing algorithm: %w", err))
-	}
-	token.Header["alg"] = algorithm
-	if j.signer.Kid != "" {
-		token.Header["kid"] = j.signer.Kid
-	}
-	header, err := json.Marshal(token.Header)
-	if err != nil {
-		return vapi.NewErrorCategory(vapi.ErrMalformed, fmt.Errorf("encode JWT header for signing: %w", err))
-	}
+
 	claims, err := json.Marshal(token.Claims)
 	if err != nil {
 		return vapi.NewErrorCategory(vapi.ErrMalformed, fmt.Errorf("encode JWT claims for signing: %w", err))
 	}
-	signingInput := []byte(base64.RawURLEncoding.EncodeToString(header) + "." + base64.RawURLEncoding.EncodeToString(claims))
-	token.signature, err = j.signer.Sign(ctx, sig.Message(signingInput))
+
+	jws, err := j.signer.Sign(ctx, claims)
 	if err != nil {
-		return fmt.Errorf("sign JWT: %w", err)
+		return vapi.NewErrorCategory(vapi.ErrInternal, fmt.Errorf("sign failed: %w", err))
 	}
+	token.signature = jws.Signature
+
+	if err := json.Unmarshal(jws.Header, &token.Header); err != nil {
+		return vapi.NewErrorCategory(vapi.ErrInternal, fmt.Errorf("header unmarshal failed: %w", err))
+	}
+
 	return nil
 }
 
