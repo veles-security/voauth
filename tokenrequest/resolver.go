@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/veles-security/vapi"
 	"github.com/veles-security/voauth/clientcredentials"
@@ -49,9 +50,7 @@ func (r *Resolver) Resolve(ctx context.Context, artifact *TokenRequest, options 
 		return nil, vapi.NewErrorCategory(vapi.ErrMalformed, errors.New("cannot resolve nil token request"))
 	}
 
-	allOptions := make([]ResolverOption, 0, len(r.runtimeOptions)+len(options))
-	allOptions = append(allOptions, r.runtimeOptions...)
-	allOptions = append(allOptions, options...)
+	allOptions := slices.Concat(r.runtimeOptions, options)
 
 	next := r.resolve
 	for index := len(allOptions) - 1; index >= 0; index-- {

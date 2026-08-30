@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 
 	"github.com/veles-security/vapi"
@@ -80,9 +81,7 @@ func (w *Writer) WriteArtifact(ctx context.Context, carrierWriter *http.Request,
 		return vapi.NewErrorCategory(vapi.ErrMisconfigured, errors.New("cannot write bearer assertion with nil assertion token encoder"))
 	}
 
-	allOptions := make([]WriterOption, 0, len(w.runtimeOptions)+len(options))
-	allOptions = append(allOptions, w.runtimeOptions...)
-	allOptions = append(allOptions, options...)
+	allOptions := slices.Concat(w.runtimeOptions, options)
 
 	next := w.writeArtifact
 	for index := len(allOptions) - 1; index >= 0; index-- {

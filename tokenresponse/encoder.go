@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/veles-security/vapi"
@@ -55,9 +56,7 @@ func (e *Encoder) Encode(ctx context.Context, artifact *TokenResponse, options .
 		return nil, vapi.NewErrorCategory(vapi.ErrMalformed, errors.New("cannot encode token response without a token"))
 	}
 
-	allOptions := make([]EncoderOption, 0, len(e.runtimeOptions)+len(options))
-	allOptions = append(allOptions, e.runtimeOptions...)
-	allOptions = append(allOptions, options...)
+	allOptions := slices.Concat(e.runtimeOptions, options)
 
 	representation := &TokenResponseRepresentation{}
 	next := e.encode
