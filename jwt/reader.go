@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 
 	"github.com/veles-security/vapi"
@@ -50,9 +51,7 @@ func (r *Reader) ReadArtifact(ctx context.Context, carrier *http.Request, option
 		return nil, vapi.NewErrorCategory(vapi.ErrMalformed, errors.New("cannot read JWT from nil request"))
 	}
 
-	allOptions := make([]ReaderOption, 0, len(r.runtimeOptions)+len(options))
-	allOptions = append(allOptions, r.runtimeOptions...)
-	allOptions = append(allOptions, options...)
+	allOptions := slices.Concat(r.runtimeOptions, options)
 
 	next := r.readArtifact
 	for index := len(allOptions) - 1; index >= 0; index-- {

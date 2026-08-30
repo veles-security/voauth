@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/veles-security/vapi"
 	"github.com/veles-security/voauth/token"
@@ -44,9 +45,7 @@ func (d *Decoder) Decode(ctx context.Context, payload []byte, options ...Decoder
 		return nil, vapi.NewErrorCategory(vapi.ErrMalformed, errors.New("cannot decode nil JWT payload"))
 	}
 
-	allOptions := make([]DecoderOption, 0, len(d.runtimeOptions)+len(options))
-	allOptions = append(allOptions, d.runtimeOptions...)
-	allOptions = append(allOptions, options...)
+	allOptions := slices.Concat(d.runtimeOptions, options)
 
 	next := d.decode
 	for index := len(allOptions) - 1; index >= 0; index-- {

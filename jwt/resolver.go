@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/veles-security/vapi"
 	"github.com/veles-security/vapi/sub"
@@ -41,9 +42,7 @@ func (a *Resolver) Resolve(ctx context.Context, artifact *Token, options ...Reso
 		return nil, vapi.NewErrorCategory(vapi.ErrMalformed, errors.New("cannot resolve nil JWT"))
 	}
 
-	allOptions := make([]ResolverOption, 0, len(a.runtimeOptions)+len(options))
-	allOptions = append(allOptions, a.runtimeOptions...)
-	allOptions = append(allOptions, options...)
+	allOptions := slices.Concat(a.runtimeOptions, options)
 
 	next := a.resolve
 	for index := len(allOptions) - 1; index >= 0; index-- {

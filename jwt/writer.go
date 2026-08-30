@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 
 	"github.com/veles-security/vapi"
 )
@@ -52,9 +53,7 @@ func (w *Writer) WriteArtifact(ctx context.Context, carrier *http.Request, artif
 		return vapi.NewErrorCategory(vapi.ErrMalformed, errors.New("cannot write nil JWT"))
 	}
 
-	allOptions := make([]WriterOption, 0, len(w.runtimeOptions)+len(options))
-	allOptions = append(allOptions, w.runtimeOptions...)
-	allOptions = append(allOptions, options...)
+	allOptions := slices.Concat(w.runtimeOptions, options)
 
 	next := w.writeArtifact
 	for index := len(allOptions) - 1; index >= 0; index-- {

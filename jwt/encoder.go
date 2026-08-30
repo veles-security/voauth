@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/veles-security/vapi"
 	"github.com/veles-security/voauth/token"
@@ -43,9 +44,7 @@ func (e *Encoder) Encode(ctx context.Context, artifact *Token, options ...Encode
 		return nil, vapi.NewErrorCategory(vapi.ErrMalformed, errors.New("cannot encode nil JWT"))
 	}
 
-	allOptions := make([]EncoderOption, 0, len(e.runtimeOptions)+len(options))
-	allOptions = append(allOptions, e.runtimeOptions...)
-	allOptions = append(allOptions, options...)
+	allOptions := slices.Concat(e.runtimeOptions, options)
 
 	next := e.encode
 	for index := len(allOptions) - 1; index >= 0; index-- {

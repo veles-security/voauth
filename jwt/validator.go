@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/veles-security/vapi"
 )
@@ -40,9 +41,7 @@ func (v *Validator) Validate(ctx context.Context, artifact *Token, options ...Va
 		return vapi.NewErrorCategory(vapi.ErrMalformed, errors.New("cannot validate nil JWT"))
 	}
 
-	allOptions := make([]ValidatorOption, 0, len(v.runtimeOptions)+len(options))
-	allOptions = append(allOptions, v.runtimeOptions...)
-	allOptions = append(allOptions, options...)
+	allOptions := slices.Concat(v.runtimeOptions, options)
 
 	next := v.validate
 	for index := len(allOptions) - 1; index >= 0; index-- {

@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/veles-security/vapi"
@@ -44,9 +45,7 @@ func (j *Issuer) Issue(ctx context.Context, options ...IssuerOption) (*Token, er
 	}
 	token := &Token{iat: time.Now(), Header: map[string]string{}, Claims: make(Cliams)}
 
-	allOptions := make([]IssuerOption, 0, len(j.runtimeOptions)+len(options))
-	allOptions = append(allOptions, j.runtimeOptions...)
-	allOptions = append(allOptions, options...)
+	allOptions := slices.Concat(j.runtimeOptions, options)
 
 	next := j.issue
 	for index := len(allOptions) - 1; index >= 0; index-- {
