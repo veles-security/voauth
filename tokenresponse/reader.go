@@ -54,7 +54,7 @@ func (r *Reader) ReadArtifact(ctx context.Context, carrier *http.Response, optio
 		return nil, vapi.NewErrorCategory(vapi.ErrMalformed, errors.New("cannot read token response with nil body"))
 	}
 
-	allOptions := slices.Concat(w.runtimeOptions, options)
+	allOptions := slices.Concat(r.runtimeOptions, options)
 
 	next := r.readArtifact
 	for index := len(allOptions) - 1; index >= 0; index-- {
