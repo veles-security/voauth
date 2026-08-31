@@ -1,9 +1,11 @@
 package tokenendpoint_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -15,6 +17,7 @@ import (
 	"github.com/veles-security/vapi"
 	"github.com/veles-security/vapi/sub"
 	"github.com/veles-security/voauth/jwt"
+	"github.com/veles-security/voauth/logger"
 	"github.com/veles-security/voauth/tokenendpoint"
 	"github.com/veles-security/voauth/tokenrequest"
 	"github.com/veles-security/voauth/tokenresponse"
@@ -198,5 +201,49 @@ func TestTokenEndpoint_ServeHTTP(t *testing.T) {
 			endpoint.ServeHTTP(response, request)
 			tt.assertions(t, response)
 		})
+	}
+}
+
+func TestTokenEndpoint_ServeHTTP_LogsAuthenticationAndIssuedTokens(t *testing.T) {
+	var output bytes.Buffer
+	originalLogger := logger.GetLogger()
+	logger.SetLogger(slog.New(slog.NewJSONHandler(&output, nil)))
+	t.Cleanup(func() { logger.SetLogger(originalLogger) })
+
+	principal := sub.NewBasePrincipal("issuer", "user-1", "user").WithGrantedScopes("read")
+	endpoint, err := tokenendpoint.New(
+		tokenendpoint.WithTokenRequestAuthenticator(&requestAuthenticatorStub{principal: principal}),
+		tokenendpoint.WithIssuedTokens(tokenendpoint.IssuedAccessToken, tokenendpoint.IssuedRefreshToken),
+		tokenendpoint.WithIssuerOptionsCallback(func(context.Context, vapi.ScopedPrincipal) (tokenendpoint.IssuerOptions, error) {
+			return tokenendpoint.IssuerOptions{
+				AccessToken:  []jwt.IssuerOption{jwt.WithIssuer("issuer")},
+				RefreshToken: []jwt.IssuerOption{jwt.WithIssuer("issuer")},
+			}, nil
+		}),
+	)
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+
+	request := httptest.NewRequest(http.MethodPost, "/token", strings.NewReader(url.Values{
+		"grant_type":    {tokenrequest.ClientCredentialsGrantType},
+		"client_id":     {"client-1"},
+		"client_secret": {"secret"},
+	}.Encode()))
+	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	response := httptest.NewRecorder()
+	endpoint.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("ServeHTTP() status = %d, want %d; body = %q", response.Code, http.StatusOK, response.Body.String())
+	}
+
+	logs := output.String()
+	for _, expected := range []string{
+		`"msg":"token endpoint principal authenticated","subject_id":"user-1"`,
+		`"msg":"token endpoint tokens issued","token_types":["access_token","refresh_token"]`,
+	} {
+		if !strings.Contains(logs, expected) {
+			t.Errorf("logs = %q, want entry containing %q", logs, expected)
+		}
 	}
 }

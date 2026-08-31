@@ -5,11 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strings"
 
 	"github.com/veles-security/vapi"
 	"github.com/veles-security/voauth/jwt"
+	"github.com/veles-security/voauth/logger"
 	"github.com/veles-security/voauth/tokenrequest"
 	"github.com/veles-security/voauth/tokenresponse"
 )
@@ -103,17 +105,19 @@ func (e *TokenEndpoint) ServeHTTP(response http.ResponseWriter, request *http.Re
 
 	principal, err := e.requestAuthenticator.Authenticate(request.Context(), request)
 	if err != nil {
-		e.handleError(response, err)
+		e.handleError(request.Context(), response, err)
 		return
 	}
 	scopedPrincipal, ok := principal.(vapi.ScopedPrincipal)
 	if !ok {
-		e.handleError(response, vapi.NewErrorCategory(vapi.ErrPolicyRejected, fmt.Errorf("token request authenticator returned non-scoped principal of type %T", principal)))
+		e.handleError(request.Context(), response, vapi.NewErrorCategory(vapi.ErrPolicyRejected, fmt.Errorf("token request authenticator returned non-scoped principal of type %T", principal)))
 		return
 	}
+	logger.GetLogger().Log(request.Context(), slog.LevelInfo, "token endpoint principal authenticated", "subject_id", scopedPrincipal.Subject())
+
 	issuerOptions, err := e.issuerOptionsCallback(request.Context(), scopedPrincipal)
 	if err != nil {
-		e.handleError(response, err)
+		e.handleError(request.Context(), response, err)
 		return
 	}
 
@@ -121,39 +125,47 @@ func (e *TokenEndpoint) ServeHTTP(response http.ResponseWriter, request *http.Re
 		TokenType: "Bearer",
 		Scope:     strings.Join(scopedPrincipal.GrantedScopes(), " "),
 	}
+	issuedTokenTypes := make([]IssuedToken, 0, len(e.issuedTokens))
 	if _, issue := e.issuedTokens[IssuedAccessToken]; issue {
 		options := []jwt.IssuerOption{jwt.WithPrincipal(scopedPrincipal)}
 		options = append(options, issuerOptions.AccessToken...)
 		tokenResponse.AccessToken, err = e.issuer.Issue(request.Context(), options...)
 		if err != nil {
-			e.handleError(response, fmt.Errorf("issue access token: %w", err))
+			e.handleError(request.Context(), response, fmt.Errorf("issue access token: %w", err))
 			return
 		}
+		issuedTokenTypes = append(issuedTokenTypes, IssuedAccessToken)
 	}
 	if _, issue := e.issuedTokens[IssuedRefreshToken]; issue {
 		options := []jwt.IssuerOption{jwt.WithPrincipal(scopedPrincipal)}
 		options = append(options, issuerOptions.RefreshToken...)
 		tokenResponse.RefreshToken, err = e.issuer.Issue(request.Context(), options...)
 		if err != nil {
-			e.handleError(response, fmt.Errorf("issue refresh token: %w", err))
+			e.handleError(request.Context(), response, fmt.Errorf("issue refresh token: %w", err))
 			return
 		}
+		issuedTokenTypes = append(issuedTokenTypes, IssuedRefreshToken)
 	}
 	if _, issue := e.issuedTokens[IssuedIDToken]; issue {
 		options := []jwt.IssuerOption{jwt.WithPrincipal(scopedPrincipal)}
 		options = append(options, issuerOptions.IDToken...)
 		tokenResponse.IdToken, err = e.issuer.Issue(request.Context(), options...)
 		if err != nil {
-			e.handleError(response, fmt.Errorf("issue ID token: %w", err))
+			e.handleError(request.Context(), response, fmt.Errorf("issue ID token: %w", err))
 			return
 		}
+		issuedTokenTypes = append(issuedTokenTypes, IssuedIDToken)
 	}
 	if err := e.responseWriter.WriteArtifact(request.Context(), response, tokenResponse); err != nil {
-		e.handleError(response, err)
+		e.handleError(request.Context(), response, err)
+		return
 	}
+	logger.GetLogger().Log(request.Context(), slog.LevelInfo, "token endpoint tokens issued", "subject_id", scopedPrincipal.Subject(), "token_types", issuedTokenTypes)
 }
 
-func (e *TokenEndpoint) handleError(response http.ResponseWriter, err error) {
+func (e *TokenEndpoint) handleError(ctx context.Context, response http.ResponseWriter, err error) {
+	logger.GetLogger().Log(ctx, slog.LevelError, "token endpoint request failed", "error", err)
+
 	status := http.StatusInternalServerError
 	code := "server_error"
 	switch {
