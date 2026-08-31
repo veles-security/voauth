@@ -1,14 +1,4 @@
-github.com/veles-security/vapi v1.8.0 h1:m/bBHmHK5EHAzjBaMtAxclrJqS0hWEl4l+AWWdR8mYs=
-github.com/veles-security/vapi v1.8.0/go.mod h1:lNjbdnY/29O3pcOvmqBM23iR9Vt+w9BH50v7iEAVDi8=
-github.com/veles-security/vapi v1.9.0 h1:w2XsY+rxFqsQpol8c3aadA4T2TzrvjQcF8vflZzGmfA=
-github.com/veles-security/vapi v1.9.0/go.mod h1:lNjbdnY/29O3pcOvmqBM23iR9Vt+w9BH50v7iEAVDi8=
-github.com/veles-security/vapi v1.10.0 h1:4Encpb0RbW3w/OeigWzJVgC+hZvR4S8IFUiDARzymvg=
-github.com/veles-security/vapi v1.10.0/go.mod h1:lNjbdnY/29O3pcOvmqBM23iR9Vt+w9BH50v7iEAVDi8=
 github.com/veles-security/vapi v1.11.0 h1:N1BZNP3xTDYCa9ffZzgyBn6vdKsp4GJTDHoH3OYRaew=
 github.com/veles-security/vapi v1.11.0/go.mod h1:lNjbdnY/29O3pcOvmqBM23iR9Vt+w9BH50v7iEAVDi8=
-github.com/veles-security/vcrypt v1.0.0 h1:+FLCNxhsBVtMLeUEUZiaOaavHmT61ofRSEH6iH6Zlag=
-github.com/veles-security/vcrypt v1.0.0/go.mod h1:JHLWX2KZBmCGJVD+xZsRv/mo18lp7fuCDl4dE0XK0Dg=
-github.com/veles-security/vcrypt v1.1.0 h1:ID5+8Q6MScTYfrWHLtmszLOobgWr6EbxYu85IzetU48=
-github.com/veles-security/vcrypt v1.1.0/go.mod h1:JHLWX2KZBmCGJVD+xZsRv/mo18lp7fuCDl4dE0XK0Dg=
-github.com/veles-security/vcrypt v1.2.0 h1:5a8dXYGtwN/Oh3/FyH0KZsTSmPJn5qpu7Wyx7KBreuc=
-github.com/veles-security/vcrypt v1.2.0/go.mod h1:JHLWX2KZBmCGJVD+xZsRv/mo18lp7fuCDl4dE0XK0Dg=
+github.com/veles-security/vcrypt v1.3.0 h1:YaR/g16aung/9nLNne5p7FeT4tiO+FOKWP6F9itGr0Y=
+github.com/veles-security/vcrypt v1.3.0/go.mod h1:JHLWX2KZBmCGJVD+xZsRv/mo18lp7fuCDl4dE0XK0Dg=
