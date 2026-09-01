@@ -6,10 +6,13 @@ import (
 	"fmt"
 
 	"github.com/veles-security/vapi"
+	"github.com/veles-security/voauth/jwt"
+	"github.com/veles-security/voauth/token"
 )
 
 type Validator struct {
 	allowedMethods map[string]struct{}
+	tokenValidator token.AnyTokenValidator
 }
 
 type ValidatorConfigOption func(*Validator) error
@@ -32,12 +35,19 @@ func NewValidator(configOptions ...ValidatorConfigOption) (*Validator, error) {
 			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, err)
 		}
 	}
+	if validator.tokenValidator == nil {
+		tokenValidator, err := jwt.NewValidator()
+		if err != nil {
+			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, err)
+		}
+		validator.tokenValidator = tokenValidator
+	}
 	return validator, nil
 }
 
 // Validate implements [vapi.Validator].
 func (v *Validator) Validate(ctx context.Context, artifact *ClientCredentials, options ...ValidatorOption) error {
-	if v == nil || v.allowedMethods == nil {
+	if v == nil || v.allowedMethods == nil || v.tokenValidator == nil {
 		return vapi.NewErrorCategory(vapi.ErrMisconfigured, errors.New("cannot validate client credentials with invalid validator configuration"))
 	}
 	if artifact == nil {
@@ -59,7 +69,7 @@ func (v *Validator) Validate(ctx context.Context, artifact *ClientCredentials, o
 	return next(ctx, artifact)
 }
 
-func (v *Validator) validate(_ context.Context, artifact *ClientCredentials) error {
+func (v *Validator) validate(ctx context.Context, artifact *ClientCredentials) error {
 	if artifact.AuthMethod == "" {
 		return vapi.NewErrorCategory(vapi.ErrMalformed, errors.New("missing client authentication method"))
 	}
@@ -92,6 +102,9 @@ func (v *Validator) validate(_ context.Context, artifact *ClientCredentials) err
 		}
 		if artifact.ClientAssertion == nil {
 			return vapi.NewErrorCategory(vapi.ErrMalformed, errors.New("missing client assertion"))
+		}
+		if err := v.tokenValidator.ValidateAnyToken(ctx, artifact.ClientAssertion); err != nil {
+			return fmt.Errorf("validate client assertion: %w", err)
 		}
 	}
 
