@@ -6,6 +6,17 @@ import (
 	"github.com/veles-security/vapi"
 )
 
+// WithReaderMaxBodyBytes configures the maximum token response body size.
+func WithReaderMaxBodyBytes(maxBytes int64) ReaderConfigOption {
+	return func(reader *Reader) error {
+		if maxBytes <= 0 {
+			return errors.New("maximum token response body size must be positive")
+		}
+		reader.maxBodyBytes = maxBytes
+		return nil
+	}
+}
+
 // WithReaderDecoder configures the decoder used to decode token responses.
 func WithReaderDecoder(decoder vapi.Decoder[*TokenResponse, DecoderOption]) ReaderConfigOption {
 	return func(target *Reader) error {

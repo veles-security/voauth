@@ -17,8 +17,11 @@ type Reader struct {
 	tokenDecoder            token.AnyTokenDecoder
 	assertionTokenDecoder   token.AnyTokenDecoder
 	clientCredentialsReader vapi.Reader[*http.Request, *clientcredentials.ClientCredentials, clientcredentials.ReaderOption]
+	maxBodyBytes            int64
 	runtimeOptions          []ReaderOption
 }
+
+const defaultMaxBodyBytes int64 = 1024 * 1024
 
 type ReaderConfigOption func(*Reader) error
 
@@ -27,7 +30,7 @@ type ReadFunc func(ctx context.Context, carrier *http.Request) (*TokenRequest, e
 type ReaderOption func(next ReadFunc) ReadFunc
 
 func NewReader(configOptions ...ReaderConfigOption) (*Reader, error) {
-	reader := &Reader{}
+	reader := &Reader{maxBodyBytes: defaultMaxBodyBytes}
 	for _, option := range configOptions {
 		if option == nil {
 			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, errors.New("nil reader config option"))
@@ -62,7 +65,7 @@ func NewReader(configOptions ...ReaderConfigOption) (*Reader, error) {
 
 // ReadArtifact implements [vapi.Reader].
 func (r *Reader) ReadArtifact(ctx context.Context, carrier *http.Request, options ...ReaderOption) (*TokenRequest, error) {
-	if r == nil || r.clientCredentialsReader == nil {
+	if r == nil || r.clientCredentialsReader == nil || r.maxBodyBytes <= 0 {
 		return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, errors.New("cannot read token request with nil client credentials reader"))
 	}
 	if carrier == nil {
@@ -86,6 +89,9 @@ func (r *Reader) ReadArtifact(ctx context.Context, carrier *http.Request, option
 }
 
 func (r *Reader) readArtifact(ctx context.Context, carrier *http.Request) (*TokenRequest, error) {
+	if carrier.Body != nil && carrier.PostForm == nil {
+		carrier.Body = http.MaxBytesReader(nil, carrier.Body, r.maxBodyBytes)
+	}
 	if err := carrier.ParseForm(); err != nil {
 		return nil, vapi.NewErrorCategory(vapi.ErrMalformed, fmt.Errorf("parse token request form: %w", err))
 	}

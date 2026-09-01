@@ -14,9 +14,12 @@ import (
 )
 
 type Decoder struct {
-	tokenDecoder   token.AnyTokenDecoder
-	runtimeOptions []DecoderOption
+	tokenDecoder    token.AnyTokenDecoder
+	maxPayloadBytes int
+	runtimeOptions  []DecoderOption
 }
+
+const defaultMaxPayloadBytes = 1024 * 1024
 
 type DecoderConfigOption func(*Decoder) error
 
@@ -25,7 +28,7 @@ type DecodeFunc func(ctx context.Context, payload []byte) (*TokenResponse, error
 type DecoderOption func(next DecodeFunc) DecodeFunc
 
 func NewDecoder(configOptions ...DecoderConfigOption) (*Decoder, error) {
-	decoder := &Decoder{}
+	decoder := &Decoder{maxPayloadBytes: defaultMaxPayloadBytes}
 	for _, option := range configOptions {
 		if option == nil {
 			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, errors.New("nil decoder config option"))
@@ -46,11 +49,14 @@ func NewDecoder(configOptions ...DecoderConfigOption) (*Decoder, error) {
 
 // Decode implements [vapi.Decoder].
 func (d *Decoder) Decode(ctx context.Context, payload []byte, options ...DecoderOption) (*TokenResponse, error) {
-	if d == nil || d.tokenDecoder == nil {
+	if d == nil || d.tokenDecoder == nil || d.maxPayloadBytes <= 0 {
 		return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, errors.New("cannot decode token response with nil token decoder"))
 	}
 	if payload == nil {
 		return nil, vapi.NewErrorCategory(vapi.ErrMalformed, errors.New("cannot decode nil token response payload"))
+	}
+	if len(payload) > d.maxPayloadBytes {
+		return nil, vapi.NewErrorCategory(vapi.ErrMalformed, fmt.Errorf("token response payload exceeds maximum size of %d bytes", d.maxPayloadBytes))
 	}
 
 	allOptions := slices.Concat(d.runtimeOptions, options)

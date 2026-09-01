@@ -62,6 +62,8 @@ func TestReader_ReadArtifact(t *testing.T) {
 	multiple := httptest.NewRequest("POST", "/token", strings.NewReader("client_secret=secret"))
 	multiple.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	multiple.SetBasicAuth("id", "secret")
+	oversized := httptest.NewRequest("POST", "/token", strings.NewReader("client_id=id&client_secret=secret"))
+	oversized.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
 	tests := []struct {
 		name    string
@@ -74,6 +76,7 @@ func TestReader_ReadArtifact(t *testing.T) {
 		{name: "post", reader: reader, request: post, options: []clientcredentials.ReaderOption{decorate("call")}, assert: assertRead},
 		{name: "not applicable", reader: reader, request: none, assert: assertCategory(vapi.ErrNotApplicable)},
 		{name: "multiple methods", reader: reader, request: multiple, assert: assertCategory(vapi.ErrUnauthenticated)},
+		{name: "oversized body", reader: mustLimitedReader(t, 4), request: oversized, assert: assertCategory(vapi.ErrMalformed)},
 		{name: "nil receiver", request: basic, assert: assertCategory(vapi.ErrMisconfigured)},
 		{name: "nil request", reader: reader, assert: assertCategory(vapi.ErrMalformed)},
 		{name: "nil option", reader: reader, request: basic, options: []clientcredentials.ReaderOption{nil}, assert: assertCategory(vapi.ErrMisconfigured)},
@@ -113,6 +116,8 @@ func TestNewReader(t *testing.T) {
 		{name: "defaults", assert: assertCreated},
 		{name: "direct dependency", options: []clientcredentials.ReaderConfigOption{clientcredentials.WithReaderTokenDecoder(&tokenDecoderStub{})}, assert: assertCreated},
 		{name: "dependency options", options: []clientcredentials.ReaderConfigOption{clientcredentials.WithReaderTokenDecoderOptions()}, assert: assertCreated},
+		{name: "body limit", options: []clientcredentials.ReaderConfigOption{clientcredentials.WithReaderMaxBodyBytes(1024)}, assert: assertCreated},
+		{name: "invalid body limit", options: []clientcredentials.ReaderConfigOption{clientcredentials.WithReaderMaxBodyBytes(0)}, assert: assertMisconfigured},
 		{name: "nil config option", options: []clientcredentials.ReaderConfigOption{nil}, assert: assertMisconfigured},
 		{name: "nil dependency", options: []clientcredentials.ReaderConfigOption{clientcredentials.WithReaderTokenDecoder(nil)}, assert: assertMisconfigured},
 		{name: "invalid dependency options", options: []clientcredentials.ReaderConfigOption{clientcredentials.WithReaderTokenDecoderOptions(jwt.DecoderConfigOption(nil))}, assert: assertMisconfigured},
@@ -123,4 +128,13 @@ func TestNewReader(t *testing.T) {
 			tt.assert(t, got, gotErr)
 		})
 	}
+}
+
+func mustLimitedReader(t *testing.T, maxBytes int64) *clientcredentials.Reader {
+	t.Helper()
+	reader, err := clientcredentials.NewReader(clientcredentials.WithReaderMaxBodyBytes(maxBytes))
+	if err != nil {
+		t.Fatalf("NewReader() failed: %v", err)
+	}
+	return reader
 }

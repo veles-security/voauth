@@ -13,8 +13,11 @@ import (
 
 type Reader struct {
 	decoder        vapi.Decoder[*TokenResponse, DecoderOption]
+	maxBodyBytes   int64
 	runtimeOptions []ReaderOption
 }
+
+const defaultMaxBodyBytes int64 = 1024 * 1024
 
 type ReaderConfigOption func(*Reader) error
 
@@ -23,7 +26,7 @@ type ReadFunc func(ctx context.Context, carrier *http.Response) (*TokenResponse,
 type ReaderOption func(next ReadFunc) ReadFunc
 
 func NewReader(configOptions ...ReaderConfigOption) (*Reader, error) {
-	reader := &Reader{}
+	reader := &Reader{maxBodyBytes: defaultMaxBodyBytes}
 	for _, option := range configOptions {
 		if option == nil {
 			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, errors.New("nil reader config option"))
@@ -44,7 +47,7 @@ func NewReader(configOptions ...ReaderConfigOption) (*Reader, error) {
 
 // ReadArtifact implements [vapi.Reader].
 func (r *Reader) ReadArtifact(ctx context.Context, carrier *http.Response, options ...ReaderOption) (*TokenResponse, error) {
-	if r == nil || r.decoder == nil {
+	if r == nil || r.decoder == nil || r.maxBodyBytes <= 0 {
 		return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, errors.New("cannot read token response with nil decoder"))
 	}
 	if carrier == nil {
@@ -73,9 +76,12 @@ func (r *Reader) ReadArtifact(ctx context.Context, carrier *http.Response, optio
 }
 
 func (r *Reader) readArtifact(ctx context.Context, carrier *http.Response) (*TokenResponse, error) {
-	payload, err := io.ReadAll(carrier.Body)
+	payload, err := io.ReadAll(io.LimitReader(carrier.Body, r.maxBodyBytes+1))
 	if err != nil {
 		return nil, vapi.NewErrorCategory(vapi.ErrMalformed, fmt.Errorf("read token response: %w", err))
+	}
+	if int64(len(payload)) > r.maxBodyBytes {
+		return nil, vapi.NewErrorCategory(vapi.ErrMalformed, fmt.Errorf("token response body exceeds maximum size of %d bytes", r.maxBodyBytes))
 	}
 
 	artifact, err := r.decoder.Decode(ctx, payload)

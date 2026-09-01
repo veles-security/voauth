@@ -19,6 +19,11 @@ func TestReader_ReadArtifact(t *testing.T) {
 		request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 		return request
 	}
+	oversizedRequest := func() *http.Request {
+		request := httptest.NewRequest(http.MethodPost, "/token", strings.NewReader("grant_type=client_credentials&scope=read"))
+		request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		return request
+	}
 	var optionOrder []string
 	decorate := func(name string) tokenrequest.ReaderOption {
 		return func(next tokenrequest.ReadFunc) tokenrequest.ReadFunc {
@@ -58,6 +63,7 @@ func TestReader_ReadArtifact(t *testing.T) {
 		{name: "configured and per-call runtime options", reader: mustReader(t, tokenrequest.WithReaderRuntimeOptions(decorate("runtime"))), carrier: request(), options: []tokenrequest.ReaderOption{decorate("per-call")}, assert: assertRead, assertOptions: true},
 		{name: "nil receiver", carrier: request(), assert: assertError(vapi.ErrMisconfigured)},
 		{name: "nil request", reader: mustReader(t), assert: assertError(vapi.ErrMalformed)},
+		{name: "oversized body", reader: mustReader(t, tokenrequest.WithReaderMaxBodyBytes(4)), carrier: oversizedRequest(), assert: assertError(vapi.ErrMalformed)},
 		{name: "nil reader option", reader: mustReader(t), carrier: request(), options: []tokenrequest.ReaderOption{nil}, assert: assertError(vapi.ErrMisconfigured)},
 		{name: "nil configured reader option", reader: mustReader(t, tokenrequest.WithReaderRuntimeOptions(nil)), carrier: request(), assert: assertError(vapi.ErrMisconfigured)},
 		{name: "reader option returns nil", reader: mustReader(t), carrier: request(), options: []tokenrequest.ReaderOption{func(tokenrequest.ReadFunc) tokenrequest.ReadFunc { return nil }}, assert: assertError(vapi.ErrMisconfigured)},
@@ -103,6 +109,8 @@ func TestNewReader(t *testing.T) {
 			tokenrequest.WithReaderAssertionTokenDecoderOptions(),
 			tokenrequest.WithReaderClientCredentialsReaderOptions(),
 		}, assert: assertCreated},
+		{name: "body limit", options: []tokenrequest.ReaderConfigOption{tokenrequest.WithReaderMaxBodyBytes(1024)}, assert: assertCreated},
+		{name: "invalid body limit", options: []tokenrequest.ReaderConfigOption{tokenrequest.WithReaderMaxBodyBytes(0)}, assert: assertMisconfigured},
 		{name: "nil config option", options: []tokenrequest.ReaderConfigOption{nil}, assert: assertMisconfigured},
 		{name: "nil token decoder", options: []tokenrequest.ReaderConfigOption{tokenrequest.WithReaderTokenDecoder(nil)}, assert: assertMisconfigured},
 		{name: "nil assertion token decoder", options: []tokenrequest.ReaderConfigOption{tokenrequest.WithReaderAssertionTokenDecoder(nil)}, assert: assertMisconfigured},

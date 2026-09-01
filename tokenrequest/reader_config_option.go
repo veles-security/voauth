@@ -10,6 +10,17 @@ import (
 	"github.com/veles-security/voauth/token"
 )
 
+// WithReaderMaxBodyBytes configures the maximum token request form body size.
+func WithReaderMaxBodyBytes(maxBytes int64) ReaderConfigOption {
+	return func(reader *Reader) error {
+		if maxBytes <= 0 {
+			return errors.New("maximum token request body size must be positive")
+		}
+		reader.maxBodyBytes = maxBytes
+		return nil
+	}
+}
+
 // WithReaderTokenDecoder configures the decoder used for refresh tokens.
 func WithReaderTokenDecoder(decoder token.AnyTokenDecoder) ReaderConfigOption {
 	return func(reader *Reader) error {

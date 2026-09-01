@@ -7,6 +7,17 @@ import (
 	"github.com/veles-security/voauth/token"
 )
 
+// WithDecoderMaxPayloadBytes configures the maximum JSON token response size.
+func WithDecoderMaxPayloadBytes(maxBytes int) DecoderConfigOption {
+	return func(decoder *Decoder) error {
+		if maxBytes <= 0 {
+			return errors.New("maximum token response payload size must be positive")
+		}
+		decoder.maxPayloadBytes = maxBytes
+		return nil
+	}
+}
+
 // WithDecoderTokenDecoder configures the decoder used for access, refresh, and ID tokens.
 func WithDecoderTokenDecoder(decoder token.AnyTokenDecoder) DecoderConfigOption {
 	return func(target *Decoder) error {

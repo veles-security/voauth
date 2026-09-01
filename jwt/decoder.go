@@ -14,8 +14,19 @@ import (
 )
 
 type Decoder struct {
-	runtimeOptions []DecoderOption
+	maxTokenBytes     int
+	maxHeaderBytes    int
+	maxClaimsBytes    int
+	maxSignatureBytes int
+	runtimeOptions    []DecoderOption
 }
+
+const (
+	defaultMaxTokenBytes     = 1024 * 1024
+	defaultMaxHeaderBytes    = 64 * 1024
+	defaultMaxClaimsBytes    = 1024 * 1024
+	defaultMaxSignatureBytes = 256 * 1024
+)
 
 type DecoderConfigOption func(*Decoder) error
 
@@ -24,7 +35,12 @@ type DecodeFunc func(ctx context.Context, payload []byte) (*Token, error)
 type DecoderOption func(next DecodeFunc) DecodeFunc
 
 func NewDecoder(configOptions ...DecoderConfigOption) (*Decoder, error) {
-	decoder := &Decoder{}
+	decoder := &Decoder{
+		maxTokenBytes:     defaultMaxTokenBytes,
+		maxHeaderBytes:    defaultMaxHeaderBytes,
+		maxClaimsBytes:    defaultMaxClaimsBytes,
+		maxSignatureBytes: defaultMaxSignatureBytes,
+	}
 	for _, option := range configOptions {
 		if option == nil {
 			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, errors.New("nil decoder config option"))
@@ -38,11 +54,14 @@ func NewDecoder(configOptions ...DecoderConfigOption) (*Decoder, error) {
 
 // Decode implements [vapi.Decoder].
 func (d *Decoder) Decode(ctx context.Context, payload []byte, options ...DecoderOption) (*Token, error) {
-	if d == nil {
+	if d == nil || d.maxTokenBytes <= 0 || d.maxHeaderBytes <= 0 || d.maxClaimsBytes <= 0 || d.maxSignatureBytes <= 0 {
 		return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, errors.New("cannot decode JWT with nil decoder"))
 	}
 	if payload == nil {
 		return nil, vapi.NewErrorCategory(vapi.ErrMalformed, errors.New("cannot decode nil JWT payload"))
+	}
+	if len(payload) > d.maxTokenBytes {
+		return nil, vapi.NewErrorCategory(vapi.ErrMalformed, fmt.Errorf("JWT payload exceeds maximum size of %d bytes", d.maxTokenBytes))
 	}
 
 	allOptions := slices.Concat(d.runtimeOptions, options)
@@ -72,6 +91,15 @@ func (d *Decoder) decode(_ context.Context, encoded []byte) (*Token, error) {
 	headerEncoded, claimsEncoded, signatureEncoded, err := d.split(encoded)
 	if err != nil {
 		return nil, vapi.NewErrorCategory(vapi.ErrMalformed, fmt.Errorf("split JWT: %w", err))
+	}
+	if base64.RawURLEncoding.DecodedLen(len(headerEncoded)) > d.maxHeaderBytes {
+		return nil, vapi.NewErrorCategory(vapi.ErrMalformed, fmt.Errorf("JWT header exceeds maximum decoded size of %d bytes", d.maxHeaderBytes))
+	}
+	if base64.RawURLEncoding.DecodedLen(len(claimsEncoded)) > d.maxClaimsBytes {
+		return nil, vapi.NewErrorCategory(vapi.ErrMalformed, fmt.Errorf("JWT claims exceed maximum decoded size of %d bytes", d.maxClaimsBytes))
+	}
+	if base64.RawURLEncoding.DecodedLen(len(signatureEncoded)) > d.maxSignatureBytes {
+		return nil, vapi.NewErrorCategory(vapi.ErrMalformed, fmt.Errorf("JWT signature exceeds maximum decoded size of %d bytes", d.maxSignatureBytes))
 	}
 	header, err := d.decodeHeader(headerEncoded)
 	if err != nil {
