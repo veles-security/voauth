@@ -8,11 +8,15 @@ import (
 
 	"github.com/veles-security/vapi"
 	"github.com/veles-security/voauth/clientcredentials"
+	"github.com/veles-security/voauth/jwt"
+	"github.com/veles-security/voauth/token"
 )
 
 type Validator struct {
 	allowedGrantTypes          map[string]struct{}
 	allowedScopes              map[string]struct{}
+	refreshTokenValidator      token.AnyTokenValidator
+	assertionTokenValidator    token.AnyTokenValidator
 	clientCredentialsValidator vapi.Validator[*clientcredentials.ClientCredentials, clientcredentials.ValidatorOption]
 }
 
@@ -47,12 +51,26 @@ func NewValidator(configOptions ...ValidatorConfigOption) (*Validator, error) {
 		}
 		validator.clientCredentialsValidator = credentialsValidator
 	}
+	if validator.refreshTokenValidator == nil {
+		tokenValidator, err := jwt.NewValidator()
+		if err != nil {
+			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, fmt.Errorf("create refresh token validator: %w", err))
+		}
+		validator.refreshTokenValidator = tokenValidator
+	}
+	if validator.assertionTokenValidator == nil {
+		tokenValidator, err := jwt.NewValidator()
+		if err != nil {
+			return nil, vapi.NewErrorCategory(vapi.ErrMisconfigured, fmt.Errorf("create assertion token validator: %w", err))
+		}
+		validator.assertionTokenValidator = tokenValidator
+	}
 	return validator, nil
 }
 
 // Validate implements [vapi.Validator].
 func (v *Validator) Validate(ctx context.Context, artifact *TokenRequest, options ...ValidatorOption) error {
-	if v == nil || v.allowedGrantTypes == nil || v.clientCredentialsValidator == nil {
+	if v == nil || v.allowedGrantTypes == nil || v.clientCredentialsValidator == nil || v.refreshTokenValidator == nil || v.assertionTokenValidator == nil {
 		return vapi.NewErrorCategory(vapi.ErrMisconfigured, errors.New("cannot validate token request with invalid validator configuration"))
 	}
 	if artifact == nil {
@@ -122,6 +140,9 @@ func (v *Validator) validate(ctx context.Context, artifact *TokenRequest) error 
 		if artifact.RefreshToken == nil {
 			return vapi.NewErrorCategory(vapi.ErrMalformed, errors.New("missing refresh token"))
 		}
+		if err := v.refreshTokenValidator.ValidateAnyToken(ctx, artifact.RefreshToken); err != nil {
+			return fmt.Errorf("validate refresh token: %w", err)
+		}
 	case DeviceCodeGrantType:
 		if artifact.DeviceCode == "" {
 			return vapi.NewErrorCategory(vapi.ErrMalformed, errors.New("missing device code"))
@@ -129,6 +150,9 @@ func (v *Validator) validate(ctx context.Context, artifact *TokenRequest) error 
 	case JwtBearerGrantType, Saml2BearerGrantType:
 		if artifact.Assertion == nil {
 			return vapi.NewErrorCategory(vapi.ErrMalformed, errors.New("missing bearer assertion"))
+		}
+		if err := v.assertionTokenValidator.ValidateAnyToken(ctx, artifact.Assertion); err != nil {
+			return fmt.Errorf("validate bearer assertion: %w", err)
 		}
 	}
 

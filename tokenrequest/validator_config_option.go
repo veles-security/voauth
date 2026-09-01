@@ -6,7 +6,55 @@ import (
 
 	"github.com/veles-security/vapi"
 	"github.com/veles-security/voauth/clientcredentials"
+	"github.com/veles-security/voauth/jwt"
+	"github.com/veles-security/voauth/token"
 )
+
+// WithValidatorRefreshTokenValidator configures the validator used for refresh tokens.
+func WithValidatorRefreshTokenValidator(validator token.AnyTokenValidator) ValidatorConfigOption {
+	return func(tokenRequestValidator *Validator) error {
+		if validator == nil {
+			return errors.New("nil refresh token validator")
+		}
+		tokenRequestValidator.refreshTokenValidator = validator
+		return nil
+	}
+}
+
+// WithValidatorRefreshTokenValidatorOptions constructs the JWT validator used for refresh tokens.
+func WithValidatorRefreshTokenValidatorOptions(options ...jwt.ValidatorConfigOption) ValidatorConfigOption {
+	return func(tokenRequestValidator *Validator) error {
+		validator, err := jwt.NewValidator(options...)
+		if err != nil {
+			return err
+		}
+		tokenRequestValidator.refreshTokenValidator = validator
+		return nil
+	}
+}
+
+// WithValidatorAssertionTokenValidator configures the validator used for JWT and SAML bearer assertions.
+func WithValidatorAssertionTokenValidator(validator token.AnyTokenValidator) ValidatorConfigOption {
+	return func(tokenRequestValidator *Validator) error {
+		if validator == nil {
+			return errors.New("nil assertion token validator")
+		}
+		tokenRequestValidator.assertionTokenValidator = validator
+		return nil
+	}
+}
+
+// WithValidatorAssertionTokenValidatorOptions constructs the JWT validator used for JWT and SAML bearer assertions.
+func WithValidatorAssertionTokenValidatorOptions(options ...jwt.ValidatorConfigOption) ValidatorConfigOption {
+	return func(tokenRequestValidator *Validator) error {
+		validator, err := jwt.NewValidator(options...)
+		if err != nil {
+			return err
+		}
+		tokenRequestValidator.assertionTokenValidator = validator
+		return nil
+	}
+}
 
 // WithAllowedGrantTypes restricts the OAuth grant types accepted by a Validator.
 func WithAllowedGrantTypes(grantTypes ...string) ValidatorConfigOption {
