@@ -11,3 +11,7 @@ type AnyTokenEncoder interface {
 type AnyTokenDecoder interface {
 	DecodeAnyToken(ctx context.Context, payload []byte) (AnyToken, error)
 }
+
+type AnyTokenValidator interface {
+	ValidateAnyToken(ctx context.Context, artifact AnyToken) error
+}

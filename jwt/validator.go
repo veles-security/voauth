@@ -2,14 +2,18 @@ package jwt
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"slices"
 
 	"github.com/veles-security/vapi"
+	"github.com/veles-security/vcrypt/jws"
+	"github.com/veles-security/voauth/token"
 )
 
 type Validator struct {
+	verifier       vapi.Verifier[jws.VerifierOption]
 	runtimeOptions []ValidatorOption
 }
 
@@ -30,6 +34,15 @@ func NewValidator(configOptions ...ValidatorConfigOption) (*Validator, error) {
 		}
 	}
 	return validator, nil
+}
+
+// ValidateAnyToken implements [token.AnyTokenValidator].
+func (v *Validator) ValidateAnyToken(ctx context.Context, artifact token.AnyToken) error {
+	jwtArtifact, ok := artifact.(*Token)
+	if !ok {
+		return vapi.NewErrorCategory(vapi.ErrNotApplicable, errors.New("not a JWT token"))
+	}
+	return v.Validate(ctx, jwtArtifact)
 }
 
 // Validate implements [vapi.Validator].
@@ -59,8 +72,16 @@ func (v *Validator) Validate(ctx context.Context, artifact *Token, options ...Va
 	return next(ctx, artifact)
 }
 
-func (v *Validator) validate(_ context.Context, _ *Token) error {
-	return nil
+func (v *Validator) validate(ctx context.Context, token *Token) error {
+	if v.verifier == nil {
+		return nil
+	}
+	header, err := json.Marshal(token.Header)
+	if err != nil {
+		return err
+	}
+	return v.verifier.Verify(ctx, header, token.signature)
 }
 
 var _ vapi.Validator[*Token, ValidatorOption] = &Validator{}
+var _ token.AnyTokenValidator = &Validator{}
