@@ -8,12 +8,8 @@ import (
 )
 
 const (
-	TokenKind        = "oauth2:token"         // #nosec G101 -- token kind identifier, not a credential
-	IDTokenKind      = "oauth2:id_token"      // #nosec G101 -- token kind identifier, not a credential
-	AccessTokenKind  = "oauth2:access_token"  // #nosec G101 -- token kind identifier, not a credential
-	RefreshTokenKind = "oauth2:refresh_token" // #nosec G101 -- token kind identifier, not a credential
-
-	TokenJwtType = "jwt"
+	TokenKind = "oauth2:token" // #nosec G101 -- token kind identifier, not a credential
+	TokenType = "jwt"
 )
 
 type Token struct {
@@ -25,7 +21,7 @@ type Token struct {
 
 // TokenType implements [voauth.AnyToken].
 func (j *Token) TokenType() string {
-	return TokenJwtType
+	return TokenType
 }
 
 // Kind implements [velesapi.Artifacter].
@@ -33,29 +29,5 @@ func (j *Token) Kind() string {
 	return TokenKind
 }
 
-type IDToken struct{ Token }
-
-// Kind implements [velesapi.Artifacter].
-func (i *IDToken) Kind() string {
-	return IDTokenKind
-}
-
-type AccessToken struct{ Token }
-
-// Kind implements [velesapi.Artifacter].
-func (a *AccessToken) Kind() string {
-	return AccessTokenKind
-}
-
-type RefreshToken struct{ Token }
-
-// Kind implements [velesapi.Artifacter].
-func (r *RefreshToken) Kind() string {
-	return RefreshTokenKind
-}
-
 var _ velesapi.Artifact = &Token{}
-var _ velesapi.Artifact = &IDToken{}
-var _ velesapi.Artifact = &AccessToken{}
-var _ velesapi.Artifact = &RefreshToken{}
 var _ token.AnyToken = &Token{}
