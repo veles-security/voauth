@@ -3,6 +3,7 @@ package tokenrequest_test
 import (
 	"context"
 	"errors"
+	"reflect"
 	"testing"
 
 	"github.com/veles-security/vapi"
@@ -136,10 +137,16 @@ func TestNewValidator(t *testing.T) {
 		{name: "defaults", assert: assertCreated},
 		{name: "refresh token validator options", options: []tokenrequest.ValidatorConfigOption{tokenrequest.WithValidatorRefreshTokenValidatorOptions()}, assert: assertCreated},
 		{name: "assertion token validator options", options: []tokenrequest.ValidatorConfigOption{tokenrequest.WithValidatorAssertionTokenValidatorOptions()}, assert: assertCreated},
+		{name: "allowed grant types", options: []tokenrequest.ValidatorConfigOption{tokenrequest.WithValidatorAllowedGrantTypes(tokenrequest.ClientCredentialsGrantType)}, assert: assertCreated},
+		{name: "allowed scopes", options: []tokenrequest.ValidatorConfigOption{tokenrequest.WithValidatorAllowedScopes("read")}, assert: assertCreated},
+		{name: "client credentials validator options", options: []tokenrequest.ValidatorConfigOption{tokenrequest.WithValidatorClientCredentialsValidatorOptions()}, assert: assertCreated},
+		{name: "runtime options", options: []tokenrequest.ValidatorConfigOption{tokenrequest.WithValidatorRuntimeOptions()}, assert: assertCreated},
 		{name: "nil refresh token validator", options: []tokenrequest.ValidatorConfigOption{tokenrequest.WithValidatorRefreshTokenValidator(nil)}, assert: assertMisconfigured},
 		{name: "nil assertion token validator", options: []tokenrequest.ValidatorConfigOption{tokenrequest.WithValidatorAssertionTokenValidator(nil)}, assert: assertMisconfigured},
 		{name: "invalid refresh token validator options", options: []tokenrequest.ValidatorConfigOption{tokenrequest.WithValidatorRefreshTokenValidatorOptions(nil)}, assert: assertMisconfigured},
 		{name: "invalid assertion token validator options", options: []tokenrequest.ValidatorConfigOption{tokenrequest.WithValidatorAssertionTokenValidatorOptions(nil)}, assert: assertMisconfigured},
+		{name: "nil client credentials validator", options: []tokenrequest.ValidatorConfigOption{tokenrequest.WithValidatorClientCredentialsValidator(nil)}, assert: assertMisconfigured},
+		{name: "invalid client credentials validator options", options: []tokenrequest.ValidatorConfigOption{tokenrequest.WithValidatorClientCredentialsValidatorOptions(nil)}, assert: assertMisconfigured},
 	}
 
 	for _, tt := range tests {
@@ -147,5 +154,40 @@ func TestNewValidator(t *testing.T) {
 			got, gotErr := tokenrequest.NewValidator(tt.options...)
 			tt.assert(t, got, gotErr)
 		})
+	}
+}
+
+func TestValidator_ValidateOptions(t *testing.T) {
+	order := []string{}
+	decorate := func(name string) tokenrequest.ValidatorOption {
+		return func(next tokenrequest.ValidateFunc) tokenrequest.ValidateFunc {
+			return func(ctx context.Context, artifact *tokenrequest.TokenRequest) error {
+				order = append(order, name+" before")
+				err := next(ctx, artifact)
+				order = append(order, name+" after")
+				return err
+			}
+		}
+	}
+	validator, err := tokenrequest.NewValidator(tokenrequest.WithValidatorRuntimeOptions(decorate("configured")))
+	if err != nil {
+		t.Fatalf("NewValidator() failed: %v", err)
+	}
+	artifact := &tokenrequest.TokenRequest{
+		GrantType:         tokenrequest.ClientCredentialsGrantType,
+		ClientCredentials: clientcredentials.ClientCredentials{AuthMethod: clientcredentials.ClientSecretPostAuthMethod, ClientId: "client", ClientSecret: "secret"},
+	}
+	if err := validator.Validate(context.Background(), artifact, decorate("per-call")); err != nil {
+		t.Fatalf("Validate() failed: %v", err)
+	}
+	want := []string{"configured before", "per-call before", "per-call after", "configured after"}
+	if !reflect.DeepEqual(order, want) {
+		t.Errorf("Validate() option order = %v, want %v", order, want)
+	}
+	if err := validator.Validate(context.Background(), artifact, nil); !errors.Is(err, vapi.ErrMisconfigured) {
+		t.Errorf("Validate() nil option error = %v, want %v", err, vapi.ErrMisconfigured)
+	}
+	if err := validator.Validate(context.Background(), artifact, func(tokenrequest.ValidateFunc) tokenrequest.ValidateFunc { return nil }); !errors.Is(err, vapi.ErrMisconfigured) {
+		t.Errorf("Validate() nil decorator error = %v, want %v", err, vapi.ErrMisconfigured)
 	}
 }

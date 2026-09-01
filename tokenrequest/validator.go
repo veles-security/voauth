@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/veles-security/vapi"
@@ -18,6 +19,7 @@ type Validator struct {
 	refreshTokenValidator      token.AnyTokenValidator
 	assertionTokenValidator    token.AnyTokenValidator
 	clientCredentialsValidator vapi.Validator[*clientcredentials.ClientCredentials, clientcredentials.ValidatorOption]
+	runtimeOptions             []ValidatorOption
 }
 
 type ValidatorConfigOption func(*Validator) error
@@ -77,9 +79,10 @@ func (v *Validator) Validate(ctx context.Context, artifact *TokenRequest, option
 		return vapi.NewErrorCategory(vapi.ErrMalformed, errors.New("cannot validate nil token request"))
 	}
 
+	allOptions := slices.Concat(v.runtimeOptions, options)
 	next := v.validate
-	for index := len(options) - 1; index >= 0; index-- {
-		option := options[index]
+	for index := len(allOptions) - 1; index >= 0; index-- {
+		option := allOptions[index]
 		if option == nil {
 			return vapi.NewErrorCategory(vapi.ErrMisconfigured, fmt.Errorf("nil validator option at index %d", index))
 		}

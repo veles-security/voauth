@@ -56,8 +56,8 @@ func WithValidatorAssertionTokenValidatorOptions(options ...jwt.ValidatorConfigO
 	}
 }
 
-// WithAllowedGrantTypes restricts the OAuth grant types accepted by a Validator.
-func WithAllowedGrantTypes(grantTypes ...string) ValidatorConfigOption {
+// WithValidatorAllowedGrantTypes restricts the OAuth grant types accepted by a Validator.
+func WithValidatorAllowedGrantTypes(grantTypes ...string) ValidatorConfigOption {
 	return func(validator *Validator) error {
 		if len(grantTypes) == 0 {
 			return errors.New("no allowed grant types")
@@ -78,8 +78,8 @@ func WithAllowedGrantTypes(grantTypes ...string) ValidatorConfigOption {
 	}
 }
 
-// WithAllowedScopes restricts requested OAuth scopes. An unset scope remains valid.
-func WithAllowedScopes(scopes ...string) ValidatorConfigOption {
+// WithValidatorAllowedScopes restricts requested OAuth scopes. An unset scope remains valid.
+func WithValidatorAllowedScopes(scopes ...string) ValidatorConfigOption {
 	return func(validator *Validator) error {
 		if len(scopes) == 0 {
 			return errors.New("no allowed scopes")
@@ -97,8 +97,8 @@ func WithAllowedScopes(scopes ...string) ValidatorConfigOption {
 	}
 }
 
-// WithClientCredentialsValidator sets the validator used for the request's client credentials.
-func WithClientCredentialsValidator(validator vapi.Validator[*clientcredentials.ClientCredentials, clientcredentials.ValidatorOption]) ValidatorConfigOption {
+// WithValidatorClientCredentialsValidator sets the validator used for the request's client credentials.
+func WithValidatorClientCredentialsValidator(validator vapi.Validator[*clientcredentials.ClientCredentials, clientcredentials.ValidatorOption]) ValidatorConfigOption {
 	return func(tokenRequestValidator *Validator) error {
 		if validator == nil {
 			return errors.New("nil client credentials validator")
@@ -108,13 +108,23 @@ func WithClientCredentialsValidator(validator vapi.Validator[*clientcredentials.
 	}
 }
 
-func WithClientCredentialsValidatoOptions(options ...clientcredentials.ValidatorConfigOption) ValidatorConfigOption {
+// WithValidatorClientCredentialsValidatorOptions constructs the client credentials validator.
+func WithValidatorClientCredentialsValidatorOptions(options ...clientcredentials.ValidatorConfigOption) ValidatorConfigOption {
 	return func(tokenRequestValidator *Validator) error {
 		validator, err := clientcredentials.NewValidator(options...)
 		if err != nil {
 			return err
 		}
 		tokenRequestValidator.clientCredentialsValidator = validator
+		return nil
+	}
+}
+
+// WithValidatorRuntimeOptions configures validator options applied to every
+// Validate call before its per-call options.
+func WithValidatorRuntimeOptions(options ...ValidatorOption) ValidatorConfigOption {
+	return func(validator *Validator) error {
+		validator.runtimeOptions = append([]ValidatorOption(nil), options...)
 		return nil
 	}
 }

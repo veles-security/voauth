@@ -38,10 +38,10 @@ func Authenticator(options ...AuthenticatorOption) tokenendpoint.TokenEndpointCo
 
 		validatorOptions := make([]tokenrequest.ValidatorConfigOption, 0, 2)
 		if len(config.grantTypes) > 0 {
-			validatorOptions = append(validatorOptions, tokenrequest.WithAllowedGrantTypes(config.grantTypes...))
+			validatorOptions = append(validatorOptions, tokenrequest.WithValidatorAllowedGrantTypes(config.grantTypes...))
 		}
 		if len(config.clientMethods) > 0 {
-			validatorOptions = append(validatorOptions, tokenrequest.WithClientCredentialsValidatoOptions(
+			validatorOptions = append(validatorOptions, tokenrequest.WithValidatorClientCredentialsValidatorOptions(
 				clientcredentials.WithValidatorAllowedMethods(config.clientMethods...),
 			))
 		}
