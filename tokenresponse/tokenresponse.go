@@ -20,15 +20,15 @@ type TokenResponse struct {
 	AccessToken token.AnyToken
 	// RefreshToken is used to obtain a new access token.
 	RefreshToken token.AnyToken
-	// ExpiresIn is the access token lifetime in seconds. Zero means unspecified.
+	// IdToken contains the OpenID Connect ID token, when one was issued.
 	IdToken token.AnyToken
-	// Resources identifies the protected resources for which the token is valid.
+	// ExpiresIn is the access token lifetime. Zero means unspecified.
 	ExpiresIn time.Duration
 	// Scope is the space-delimited scope granted to the access token.
 	Scope string
 	// IssuedTokenType identifies the type of token issued by a token exchange.
 	IssuedTokenType string
-	// IdToken contains the OpenID Connect ID token, when one was issued.
+	// Resources identifies the protected resources for which the token is valid.
 	Resources []string
 }
 
